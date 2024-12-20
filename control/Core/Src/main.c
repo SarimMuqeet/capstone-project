@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "string.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -72,6 +73,41 @@ TIM_HandleTypeDef htim1;
 
 UART_HandleTypeDef huart3;
 
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for parsingTask */
+osThreadId_t parsingTaskHandle;
+const osThreadAttr_t parsingTask_attributes = {
+  .name = "parsingTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh7,
+};
+/* Definitions for armTask */
+osThreadId_t armTaskHandle;
+const osThreadAttr_t armTask_attributes = {
+  .name = "armTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh2,
+};
+/* Definitions for gripperTask */
+osThreadId_t gripperTaskHandle;
+const osThreadAttr_t gripperTask_attributes = {
+  .name = "gripperTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for controlTask */
+osThreadId_t controlTaskHandle;
+const osThreadAttr_t controlTask_attributes = {
+  .name = "controlTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -83,6 +119,12 @@ static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_TIM1_Init(void);
+void StartDefaultTask(void *argument);
+void StartParsingTask(void *argument);
+void StartArmTask(void *argument);
+void StartGripperTask(void *argument);
+void StartControlTask(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -257,7 +299,6 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_HS_USB_Init();
   MX_TIM1_Init();
-
   /* USER CODE BEGIN 2 */
 
   //start timer
@@ -265,6 +306,53 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* creation of parsingTask */
+  parsingTaskHandle = osThreadNew(StartParsingTask, NULL, &parsingTask_attributes);
+
+  /* creation of armTask */
+  armTaskHandle = osThreadNew(StartArmTask, NULL, &armTask_attributes);
+
+  /* creation of gripperTask */
+  gripperTaskHandle = osThreadNew(StartGripperTask, NULL, &gripperTask_attributes);
+
+  /* creation of controlTask */
+  controlTaskHandle = osThreadNew(StartControlTask, NULL, &controlTask_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -599,6 +687,117 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartParsingTask */
+/**
+* @brief Function implementing the parsingTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartParsingTask */
+void StartParsingTask(void *argument)
+{
+  /* USER CODE BEGIN StartParsingTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartParsingTask */
+}
+
+/* USER CODE BEGIN Header_StartArmTask */
+/**
+* @brief Function implementing the armTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartArmTask */
+void StartArmTask(void *argument)
+{
+  /* USER CODE BEGIN StartArmTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartArmTask */
+}
+
+/* USER CODE BEGIN Header_StartGripperTask */
+/**
+* @brief Function implementing the gripperTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartGripperTask */
+void StartGripperTask(void *argument)
+{
+  /* USER CODE BEGIN StartGripperTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartGripperTask */
+}
+
+/* USER CODE BEGIN Header_StartControlTask */
+/**
+* @brief Function implementing the controlTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartControlTask */
+void StartControlTask(void *argument)
+{
+  /* USER CODE BEGIN StartControlTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartControlTask */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

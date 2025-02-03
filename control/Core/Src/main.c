@@ -23,6 +23,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+//servo board driver
+#include "pca9685.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+//#include <iostream>
+//#include <cstring>
+//#include <cmath>
 
 /* USER CODE END Includes */
 
@@ -68,6 +76,8 @@ ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section(".TxDecr
 ETH_TxPacketConfig TxConfig;
 
 ETH_HandleTypeDef heth;
+
+I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
 
@@ -119,6 +129,7 @@ static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_I2C1_Init(void);
 void StartDefaultTask(void *argument);
 void StartParsingTask(void *argument);
 void StartArmTask(void *argument);
@@ -299,6 +310,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_HS_USB_Init();
   MX_TIM1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
   //start timer
@@ -357,15 +369,20 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //step through each step
-	  //4096/8 = 512 seq per revolutions, motor neds 8 steps for each sequence
-	  for(int i = 0; i < NUM_SEQ; i++){
-		  for(int j = 0; j < HALF_STEPS; j++) {
-			  half_stepper_control(j);
-			  //initial stepper motor control (half-step)
-			  set_rpm(5);
-		  }
-	  }
+	  /* stepper motor control */
+//	  //step through each step
+//	  //4096/8 = 512 seq per revolutions, motor neds 8 steps for each sequence
+//	  for(int i = 0; i < NUM_SEQ; i++){
+//		  for(int j = 0; j < HALF_STEPS; j++) {
+//			  half_stepper_control(j);
+//			  //initial stepper motor control (half-step)
+//			  set_rpm(5);
+//		  }
+//	  }
+
+	  /*servo motor control */
+	  //see threads
+
 
     /* USER CODE END WHILE */
 
@@ -479,6 +496,54 @@ static void MX_ETH_Init(void)
   /* USER CODE BEGIN ETH_Init 2 */
 
   /* USER CODE END ETH_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x60404E72;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 
@@ -685,7 +750,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+//	GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;
+//	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+//	GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+//	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -734,11 +803,112 @@ void StartParsingTask(void *argument)
 void StartArmTask(void *argument)
 {
   /* USER CODE BEGIN StartArmTask */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+
+
+	/* First Driver */
+
+//	//wait for I2C to stabilize before starting
+//	osDelay(100);
+//
+//	if(HAL_I2C_IsDeviceReady(&hi2c1, 0x40 << 1, 1, HAL_MAX_DELAY) == HAL_OK) {
+//		char str[64] = {0};
+//		sprintf(str, "I2C Device Found!\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
+//	} else {
+//		char str[64] = {0};
+//		sprintf(str, "I2C Device Found!\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
+//	}
+//
+//	// Create and initialize PCA9685 handle
+//	pca9685_handle_t servo_driver = {
+//		.i2c_handle = &hi2c1,                // Use I2C1 interface that's already initialized
+//		.device_address = 0x40 << 1,         // Default PCA9685 address (0x40) shifted for HAL
+////		.device_address = 0x40, //let driver handle shifting address
+//		.inverted = false                    // Normal output polarity
+//	};
+//
+//	// Initialize the PCA9685
+//	if (!pca9685_init(&servo_driver)) {
+//		HAL_UART_Transmit(&huart3, (uint8_t*)"PCA9685 init failed\n", 19, 10);
+//		Error_Handler();
+//	}
+//
+//	// Set PWM frequency for servos (typically 50Hz for most servos)
+//	if (!pca9685_set_pwm_frequency(&servo_driver, 50)) {
+//		HAL_UART_Transmit(&huart3, (uint8_t*)"PWM freq set failed\n", 19, 10);
+//		Error_Handler();
+//	}
+//
+//	HAL_UART_Transmit(&huart3, (uint8_t*)"Passed error checks, entering inf loop\n", 50, 10);
+//
+//	/* Infinite loop */
+//	for(;;)
+//	{
+//		// Move servo on channel 15 as example
+//		// duty cycle between ~2.5% and ~12.5% for 0° to 180°
+//
+//		char str2[64] = {0};
+//		sprintf(str2, "Passed error checks, setting duty cycle on motor channel 15\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str2, sizeof (str2), 10);
+//
+//		// Move to 0 degrees (~2.5% duty cycle)
+//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.025f, false);
+//		osDelay(1000);
+//
+//		char str3[64] = {0};
+//		sprintf(str3, "Passed error checks, move to 0 degrees\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str3, sizeof (str3), 10);
+//
+//		// Move to 90 degrees (~7.5% duty cycle)
+//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.075f, false);
+//		osDelay(1000);
+//
+//		char str4[64] = {0};
+//		sprintf(str4, "Passed error checks, move to 90 degrees\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str4, sizeof (str4), 10);
+//
+//		// Move to 180 degrees (~12.5% duty cycle)
+//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.125f, false);
+//		osDelay(1000);
+//
+//		char str5[64] = {0};
+//		sprintf(str2, "Passed error checks, move to 180 degrees\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str5, sizeof (str5), 10);
+//	}
+
+
+	/*Other Driver */
+	PCA9685_Init(&hi2c1);
+	uint8_t ActiveServo = 15;
+	uint8_t SERVO_COUNT = 5;
+
+	for(;;) {
+		//Working Demo Code
+//		for (uint8_t Angle = 0; Angle < 180; Angle++) {
+//				  PCA9685_SetServoAngle(ActiveServo, Angle);
+//		}
+//		HAL_Delay(500);
+//		for (uint16_t Angle = 180; Angle > 0; Angle--) {
+//		  PCA9685_SetServoAngle(ActiveServo, Angle);
+//		}
+//		HAL_Delay(500);
+//		ActiveServo++;
+//		if (ActiveServo >= SERVO_COUNT) ActiveServo = 0;
+
+	    // Alternate between setting the servo to 0° and 180°
+	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
+	    HAL_Delay(500);  // Wait for 500 ms
+	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
+	    HAL_Delay(500);  // Wait for 500 ms
+	}
+
+
+//  /* Infinite loop */
+//  for(;;)
+//  {
+//    osDelay(1);
+//  }
   /* USER CODE END StartArmTask */
 }
 

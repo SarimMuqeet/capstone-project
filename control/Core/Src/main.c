@@ -81,6 +81,7 @@ I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
 
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* Definitions for defaultTask */
@@ -120,6 +121,13 @@ const osThreadAttr_t controlTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 
+//for handling UART and StartArmTask synchronization
+osSemaphoreId_t armTaskSemaphore;
+
+//buffer to store UART messages
+uint8_t uartRxBuffer[30];
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -130,6 +138,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartParsingTask(void *argument);
 void StartArmTask(void *argument);
@@ -276,6 +285,35 @@ void Stepper_rotate (int angle, int rpm)
 */
 
 
+
+
+
+/* UART Interrupt Callback */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+//    if (huart->Instance == USART2) {
+//    	HAL_UART_Transmit(&huart3, (uint8_t*)"Interrupt Triggered\n", 20, HAL_MAX_DELAY);
+//    	// Signal armTask to start
+////        osThreadFlagsSet(armTaskHandle, 0x01);
+//    	osSemaphoreRelease(armTaskSemaphore);
+//        HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer)); // Restart reception
+//    }
+    if (huart->Instance == USART2) {
+        if(huart->ErrorCode == HAL_UART_ERROR_NONE) {
+            osSemaphoreRelease(armTaskSemaphore);
+        }
+        //potentially resetting UART reception after buffer has been cleared
+        HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+    }
+}
+
+//clear buffer after every input
+void clearBuffer(uint8_t *buffer, size_t size) {
+	memset(buffer, 0, size);
+}
+
+
+
+
 /* USER CODE END 0 */
 
 /**
@@ -311,10 +349,17 @@ int main(void)
   MX_USB_OTG_HS_USB_Init();
   MX_TIM1_Init();
   MX_I2C1_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
   //start timer
   HAL_TIM_Base_Start(&htim1);
+
+  //enable UART interrupt to receive messages
+//  uint8_t uartRxBuffer[30];
+  HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
+
 
   /* USER CODE END 2 */
 
@@ -327,6 +372,10 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
+
+  //global semaphore, used for UART and StartArmTask Synchronization
+  armTaskSemaphore = osSemaphoreNew(1, 0, NULL);
+
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -591,6 +640,54 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
 
 }
 
@@ -881,7 +978,7 @@ void StartArmTask(void *argument)
 	/*Other Driver */
 	PCA9685_Init(&hi2c1);
 	uint8_t ActiveServo = 15;
-	uint8_t SERVO_COUNT = 5;
+//	uint8_t SERVO_COUNT = 5;
 
 	for(;;) {
 		//Working Demo Code
@@ -896,11 +993,36 @@ void StartArmTask(void *argument)
 //		ActiveServo++;
 //		if (ActiveServo >= SERVO_COUNT) ActiveServo = 0;
 
+		char str[64] = {0};
+		sprintf(str, "\nWaiting for Semaphore (UART interrupt)\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
+		//use non blocking UART Transmit instead of regular (which blocks)
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str, sizeof (str));
+
+		//Acquire Semaphore (Wait for UART Signal)
+		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+//		char str[64] = {0};
+//		sprintf(str, "Semaphore Acquired\n");
+//		HAL_UART_Transmit(&huart3, (uint8_t*)uartRxBuffer, sizeof (uartRxBuffer), 10);
+		HAL_UART_Transmit_IT(&huart3, (uint8_t*)uartRxBuffer, sizeof (uartRxBuffer));
+
+
+		//clear buffer before waiting for next interrupt
+//		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+
+
 	    // Alternate between setting the servo to 0° and 180°
 	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
-	    HAL_Delay(500);  // Wait for 500 ms
+//	    HAL_Delay(500);  // Wait for 500 ms
+	    osDelay(pdMS_TO_TICKS(500));
 	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
-	    HAL_Delay(500);  // Wait for 500 ms
+//	    HAL_Delay(500);  // Wait for 500 ms
+	    osDelay(pdMS_TO_TICKS(500));
+
+	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
+//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
 	}
 
 

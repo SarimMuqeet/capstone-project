@@ -1,0 +1,12 @@
+../Core/Src/pca9685.c:265:16:PCA9685_SetBit	40	static
+../Core/Src/pca9685.c:285:16:PCA9685_SoftwareReset	24	static
+../Core/Src/pca9685.c:295:16:PCA9685_SleepMode	16	static
+../Core/Src/pca9685.c:300:16:PCA9685_RestartMode	16	static
+../Core/Src/pca9685.c:305:16:PCA9685_AutoIncrement	16	static
+../Core/Src/pca9685.c:310:16:PCA9685_SubaddressRespond	16	static
+../Core/Src/pca9685.c:315:16:PCA9685_AllCallRespond	16	static
+../Core/Src/pca9685.c:323:16:PCA9685_SetPwmFrequency	40	static
+../Core/Src/pca9685.c:352:16:PCA9685_SetPwm	40	static
+../Core/Src/pca9685.c:371:16:PCA9685_SetPin	16	static
+../Core/Src/pca9685.c:404:16:PCA9685_SetServoAngle	24	static
+../Core/Src/pca9685.c:416:16:PCA9685_Init	16	static

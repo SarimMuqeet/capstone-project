@@ -86,6 +86,9 @@ class decision_maker(Node):
         #to keep track of index for drop off locations
         self.current_drop_off_index = 0
 
+        #create instance of robot state machine to use
+        self.state_machine = RobotStateMachine()
+
 
 
         self.goal = None
@@ -93,7 +96,7 @@ class decision_maker(Node):
         self.create_timer(publishing_period, self.timerCallback)
 
 
-        print("waiting for your input position, use 2D nav goal in rviz2")
+        # print("waiting for your input position, use 2D nav goal in rviz2")
 
 
     # NEW 
@@ -141,14 +144,22 @@ class decision_maker(Node):
     
     def timerCallback(self):
         #implement state machine handling here
-        
-        spin_once(self.localizer)
 
-        if self.localizer.getPose() is  None:
-            print("waiting for odom msgs ....")
-            return
+        print("inside timer callback start")
+
+        #TO CHANGE / UNCOMMENT LATER: commented out for now as no odom simulation
+        #  ------------------------------------        
+        # spin_once(self.localizer)
+
+        # if self.localizer.getPose() is None:
+        #     print("waiting for odom msgs ....")
+        #     return
         
-        
+
+
+
+
+        #------------------------- OLD --------------------------
         # vel_msg=Twist()
         
         # if self.goal is None:
@@ -186,10 +197,16 @@ class decision_maker(Node):
         # self.publisher.publish(vel_msg)
         # self.publishPathOnRviz2(self.goal)
 
+        #-------------------------------------------------------------------------
 
 
 
         # NEW 
+        if not hasattr(self, 'state_machine'):
+            print("State machine not initialized")
+            return
+        print("in timer callback")
+
         # ----------------- STATE MACHINE LOGIC -----------------
         current_pose = self.localizer.getPose()
 
@@ -224,10 +241,11 @@ class decision_maker(Node):
             path = self.planner.plan(current_pose[:2], target_object[:2])
             
             if path:
+                print(f"Path planned to object, path is not empty!")
                 # Publish path for visualization in RViz
                 self.publishPathOnRviz2(path)
 
-                velocity, yaw_rate = self.controller.vel_request(current_pose, path)
+                velocity, yaw_rate = self.controller.vel_request(current_pose, path, True)
                 vel_msg = Twist()
                 vel_msg.linear.x = velocity
                 vel_msg.angular.z = yaw_rate
@@ -263,7 +281,7 @@ class decision_maker(Node):
             path_to_destination = self.planner.plan(current_pose[:2], self.goal)
             
             if path_to_destination:
-                velocity, yaw_rate = self.controller.vel_request(current_pose, path_to_destination)
+                velocity, yaw_rate = self.controller.vel_request(current_pose, path_to_destination, True)
                 vel_msg = Twist()
                 vel_msg.linear.x = velocity
                 vel_msg.angular.z = yaw_rate
@@ -329,6 +347,7 @@ def main(args=None):
 
 
     try:
+        print("main func - spin DM")
         spin(DM)
     except SystemExit:
         print(f"reached there successfully {DM.localizer.pose}")

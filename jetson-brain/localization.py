@@ -143,7 +143,14 @@ class localization(Node):
 
         
     def getPose(self):
+        # TO CHANGE, NEW --- handle no odom simulation method
+        if self.pose is None:
+            # Set a default pose if no odometry data has been received
+            print("No odom, setting default pose")
+            return [0.0, 0.0, 0.0]  # Example default pose: x=0, y=0, yaw=0
         return self.pose
+        #Change to below later
+        # return self.pose
 
 
 if __name__=="__main__":

@@ -251,11 +251,15 @@ class decision_maker(Node):
                 vel_msg.angular.z = yaw_rate
                 self.publisher.publish(vel_msg)
 
-                # Check if goal is reached
-                if calculate_linear_error(current_pose, target_object) < self.reachThreshold:
-                    print("Reached object.")
-                    self.publisher.publish(Twist())  # Stop robot
-                    self.state_machine.pick_object()
+                # # Check if goal is reached
+                # if calculate_linear_error(current_pose, target_object) < self.reachThreshold:
+                #     print("Reached object.")
+                #     self.publisher.publish(Twist())  # Stop robot
+                #     self.state_machine.pick_object()
+
+                #simulate just moving to next state (in sim)
+                self.state_machine.pick_object()
+
 
         elif self.state_machine.state == "PICK":
             print("State: PICK")
@@ -281,6 +285,9 @@ class decision_maker(Node):
             path_to_destination = self.planner.plan(current_pose[:2], self.goal)
             
             if path_to_destination:
+                #publish to rviz
+                self.publishPathOnRviz2(path)
+
                 velocity, yaw_rate = self.controller.vel_request(current_pose, path_to_destination, True)
                 vel_msg = Twist()
                 vel_msg.linear.x = velocity

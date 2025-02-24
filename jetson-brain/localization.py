@@ -21,6 +21,11 @@ import numpy as np
 import message_filters
 
 
+#for timestamp (hardcode) in simulation
+from builtin_interfaces.msg import Time
+
+
+
 
 rawSensors=0; kalmanFilter=1
 
@@ -147,7 +152,7 @@ class localization(Node):
         if self.pose is None:
             # Set a default pose if no odometry data has been received
             print("No odom, setting default pose")
-            timestamp = 5
+            timestamp = Time(sec=0, nanosec=0)
             return [0.0, 0.0, 0.0, timestamp]  # Example default pose: x=0, y=0, yaw=0
         return self.pose
         #Change to below later

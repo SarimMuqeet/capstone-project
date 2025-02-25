@@ -286,7 +286,7 @@ class decision_maker(Node):
             
             if path_to_destination:
                 #publish to rviz
-                self.publishPathOnRviz2(path)
+                self.publishPathOnRviz2(path_to_destination)
 
                 velocity, yaw_rate = self.controller.vel_request(current_pose, path_to_destination, True)
                 vel_msg = Twist()
@@ -294,10 +294,14 @@ class decision_maker(Node):
                 vel_msg.angular.z = yaw_rate
                 self.publisher.publish(vel_msg)
 
-                if calculate_linear_error(current_pose, self.goal) < self.reachThreshold:
-                    print("Reached tidy destination.")
-                    self.publisher.publish(Twist())  # Stop robot
-                    self.state_machine.place_object()
+                #Check if goal is reached
+                # if calculate_linear_error(current_pose, self.goal) < self.reachThreshold:
+                #     print("Reached tidy destination.")
+                #     self.publisher.publish(Twist())  # Stop robot
+                #     self.state_machine.place_object()
+
+                #simulate just moving to next state (in sim)
+                self.state_machine.place_object()
 
         elif self.state_machine.state == "PLACE_OBJECT":
             print("State: PLACE_OBJECT")
@@ -309,6 +313,9 @@ class decision_maker(Node):
                 
                 if not len(self.object_queue): 
                     return 
+                else:
+                    #if array not empty, plan path to the next object in the queue
+                    self.state_machine.plan_next_object()
 
 
 

@@ -69,6 +69,8 @@ class decision_maker(Node):
         # else:
         #     print("Error! you don't have this type of planner", file=sys.stderr)
 
+
+        # NEW - init trajectory planner by default
         self.controller=trajectoryController(klp = 0.4, klv = 0.5, kli=0.2, kap = 0.4, kav=0.2, kai=0.2)      
         self.planner=planner(TRAJECTORY_PLANNER)
 
@@ -357,6 +359,10 @@ def main(args=None):
         DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
     else:
         print("invalid motion type", file=sys.stderr)
+
+
+    # NEW for jackal1 cmd_vel topic
+    # DM=decision_maker(Twist, "/jackal1/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
 
 
 

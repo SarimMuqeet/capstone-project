@@ -54,6 +54,7 @@ class localization(Node):
         self.timelast=time.time()
     
     def initRawSensors(self):
+        # NEW need to use /jackal1/platform/odom if using jackal
         self.create_subscription(odom, "/odom", self.odom_callback, qos_profile=odom_qos)
 
     def initKalmanfilter(self):

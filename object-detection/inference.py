@@ -2,6 +2,7 @@ import cv2
 from ultralytics import YOLO
 import time
 import os
+<<<<<<< HEAD
 import requests
 import numpy as np
 import socket
@@ -140,8 +141,7 @@ def main():
             
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-    
-    cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()

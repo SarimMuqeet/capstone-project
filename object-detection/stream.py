@@ -1,24 +1,34 @@
-from PIL import Image
-import requests
-import matplotlib.pyplot as plt
-import struct
-import numpy as np
 import cv2
+from ultralytics import YOLO
+import time
+import os
+import requests
+import numpy as np
+import socket
+import struct
+from PIL import Image
+from io import BytesIO
 
+os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
+
+def test_connection(ip, port=80, timeout=2):
+    """Test if the device is reachable on the network"""
+    try:
+        socket.create_connection((ip, port), timeout=timeout)
+        return True
+    except (socket.timeout, socket.error):
+        return False
 
 def frame_config_decode(frame_config):
     '''
         @frame_config bytes
-
         @return fields, tuple (trigger_mode, deep_mode, deep_shift, ir_mode, status_mode, status_mask, rgb_mode, rgb_res, expose_time)
     '''
     return struct.unpack("<BBBBBBBBi", frame_config)
 
-
 def frame_config_encode(trigger_mode=1, deep_mode=1, deep_shift=255, ir_mode=1, status_mode=2, status_mask=7, rgb_mode=1, rgb_res=0, expose_time=0):
     return struct.pack("<BBBBBBBBi",
                        trigger_mode, deep_mode, deep_shift, ir_mode, status_mode, status_mask, rgb_mode, rgb_res, expose_time)
-
 
 def frame_payload_decode(frame_data: bytes, with_config: tuple):
     deep_data_size, rgb_data_size = struct.unpack("<ii", frame_data[:8])
@@ -59,86 +69,191 @@ def frame_payload_decode(frame_data: bytes, with_config: tuple):
 
     return (deepth_img, ir_img, status_img, rgb_img)
 
-
-HOST = '192.168.233.1'
-PORT = 80
-
-
-def post_encode_config(config=frame_config_encode(), host=HOST, port=PORT):
-    r = requests.post('http://{}:{}/set_cfg'.format(host, port), config)
+def get_frame_from_http(host, port=80):
+    r = requests.get(f'http://{host}:{port}/getdeep')
     if(r.status_code == requests.codes.ok):
-        return True
-    return False
+        return r.content
+    return None
 
+def get_center_position(x1, y1, x2, y2):
+    """Calculate the center position of a bounding box"""
+    center_x = (x1 + x2) // 2
+    center_y = (y1 + y2) // 2
+    return center_x, center_y
 
-def get_frame_from_http(host=HOST, port=PORT):
-    r = requests.get('http://{}:{}/getdeep'.format(host, port))
-    if(r.status_code == requests.codes.ok):
-        # print('Get deep image')
-        deepimg = r.content
-        # print('Length={}'.format(len(deepimg)))
-        (frameid, stamp_msec) = struct.unpack('<QQ', deepimg[0:8+8])
-        # print((frameid, stamp_msec/1000))
-        return deepimg
+def get_distance_from_depth(depth_frame, center_x, center_y, rgb_width=640, rgb_height=480, depth_width=320, depth_height=240, deep_mode=1):
+    """
+    Calculate the distance from the camera using the depth frame
+    Converts RGB coordinates to depth coordinates and gets the depth value
+    """
+    # Convert RGB coordinates to depth coordinates (scale down)
+    depth_x = int(center_x * depth_width / rgb_width)
+    depth_y = int(center_y * depth_height / rgb_height)
+    
+    # Ensure coordinates are within bounds
+    depth_x = max(0, min(depth_x, depth_width - 1))
+    depth_y = max(0, min(depth_y, depth_height - 1))
+    
+    # Get depth value at the center point
+    depth_value = depth_frame[depth_y, depth_x]
+    
+    # Convert depth value to distance in mm
+    if deep_mode == 0:  # 16-bit mode
+        distance_mm = depth_value
+    else:  # 8-bit mode
+        distance_mm = (depth_value / 5.1) ** 2
+    
+    return distance_mm
 
-
-def show_frame(fig, frame_data: bytes):
-    config = frame_config_decode(frame_data[16:16+12])
-    frame_bytes = frame_payload_decode(frame_data[16+12:], config)
-
-    depth = np.frombuffer(frame_bytes[0], 'uint16' if 0 == config[1] else 'uint8').reshape(
-        240, 320) if frame_bytes[0] else None
-
-    ir = np.frombuffer(frame_bytes[1], 'uint16' if 0 == config[3] else 'uint8').reshape(
-        240, 320) if frame_bytes[1] else None
-
-    status = np.frombuffer(frame_bytes[2], 'uint16' if 0 == config[4] else 'uint8').reshape(
-        240, 320) if frame_bytes[2] else None
-
-    rgb = np.frombuffer(frame_bytes[3], 'uint8').reshape(
-        (480, 640, 3)) if frame_bytes[3] else None
-
-    ax1 = fig.add_subplot(221)
-    if not depth is None:
-        # center_dis = depth[240//2, 320//2]
-        # if 0 == config[1]:
-        #     print("%f mm" % (center_dis/4))
-        # else:
-        #     print("%f mm" % ((center_dis/5.1) ** 2))
-        # depth = depth.copy()
-
-        # l,r= 200,5000
-        # depth_f = ((depth.astype('float64') - l) * (65535 / (r - l)))
-        # depth_f[np.where(depth_f < 0)] = 0
-        # depth_f[np.where(depth_f > 65535)] = 65535
-
-        # depth = depth_f.astype(depth.dtype)
-
-        # depth[240//2, 320//2 - 5:320//2+5] = 0x00
-        # depth[240//2-5:240//2+5, 320//2] = 0x00
-        ax1.imshow(depth, cmap='jet_r')
-    ax2 = fig.add_subplot(222)
-    if not ir is None:
-        ax2.imshow(ir, cmap='gray')
-    ax3 = fig.add_subplot(223)
-    if not status is None:
-        ax3.imshow(status)
-    ax4 = fig.add_subplot(224)
-    if not rgb is None:
-        ax4.imshow(rgb)
-
-
-if post_encode_config(frame_config_encode(1, 1, 255, 0, 2, 7, 1, 0, 0)):
-    # 打开交互模式
-    plt.ion()
-    figsize = (12, 12)
-    fig = plt.figure('2D frame', figsize=figsize)
+def main():
+    # MaixSense A075V camera IP address
+    maixsense_ip = "192.168.233.1"
+    port = 80
+    
+    # Check if device is reachable
+    print(f"Testing connection to MaixSense at {maixsense_ip}...")
+    if not test_connection(maixsense_ip):
+        print(f"Error: Cannot connect to MaixSense at {maixsense_ip}")
+        print("Please check that the device is connected and powered on.")
+        return
+    
+    print("Connection successful! Setting up configuration...")
+    
+    # Configure the camera - using deep_mode=0 for 16-bit depth data for better accuracy
+    camera_config = frame_config_encode(1, 0, 255, 0, 2, 7, 1, 0, 0)
+    if not post_encode_config(camera_config, maixsense_ip, port):
+        print("Failed to set camera configuration")
+        return
+    
+    # Extract deep_mode from config for distance calculation
+    config_values = frame_config_decode(camera_config)
+    deep_mode = config_values[1]
+    
+    # Load YOLO model
+    model = YOLO('yolo11m.pt')
+    selected_classes = [0, 32, 39, 40, 41, 56, 57, 58, 59, 60, 62, 65, 67, 73, 74, 75, 77]
+    
+    prev_time = time.time()
+    fps = 0
+    
+    # Create OpenCV window
+    cv2.namedWindow('MaixSense YOLO Detection', cv2.WINDOW_NORMAL)
+    
+    # Main processing loop
     while True:
-        p = get_frame_from_http()
-        show_frame(fig, p)
-        # 停顿时间
-        plt.pause(0.001)
-        # 清除当前画布
-        fig.clf()
+        try:
+            # Get frame from MaixSense
+            frame_data = get_frame_from_http(maixsense_ip, port)
+            
+            if frame_data:
+                # Decode the frame
+                config = frame_config_decode(frame_data[16:16+12])
+                frame_bytes = frame_payload_decode(frame_data[16+12:], config)
+                
+                # Get RGB data
+                rgb_data = frame_bytes[3]
+                
+                # Get depth data
+                depth_data = frame_bytes[0]
+                depth_frame = None
+                if depth_data:
+                    depth_frame = np.frombuffer(depth_data, 'uint16' if 0 == config[1] else 'uint8').reshape(240, 320)
+                
+                if rgb_data and depth_frame is not None:
+                    # Convert RGB data to numpy array
+                    rgb_frame = np.frombuffer(rgb_data, 'uint8').reshape((480, 640, 3))
+                    
+                    # Convert to BGR for OpenCV
+                    frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+                    
+                    # Run object detection
+                    results = model(frame, conf=0.5, classes=selected_classes)
+                    
+                    # Store detected objects with positions
+                    detected_objects = []
+                    
+                    for result in results:
+                        boxes = result.boxes  # Boxes object for bbox outputs
+                        for box in boxes:
+                            # Get box coordinates
+                            x1, y1, x2, y2 = map(int, box.xyxy[0])
+                            
+                            # Calculate center position
+                            center_x, center_y = get_center_position(x1, y1, x2, y2)
+                            
+                            # Get distance from depth frame
+                            distance_mm = get_distance_from_depth(depth_frame, center_x, center_y, 
+                                                                 rgb_width=640, rgb_height=480, 
+                                                                 depth_width=320, depth_height=240,
+                                                                 deep_mode=config[1])
+                            
+                            class_id = int(box.cls[0])
+                            conf = float(box.conf[0])
+                            class_name = model.names[class_id]
+                            
+                            # Add to detected objects list
+                            detected_objects.append({
+                                'class_name': class_name,
+                                'confidence': conf,
+                                'bbox': (x1, y1, x2, y2),
+                                'center': (center_x, center_y),
+                                'distance': distance_mm
+                            })
+                            
+                            # Draw bounding box
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                            
+                            # Draw center point
+                            cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
+                            
+                            # Display label with class, confidence, position and distance
+                            label = f'{class_name} {conf:.2f} ({center_x},{center_y}) {distance_mm:.0f}mm'
+                            cv2.putText(frame, label, (x1, y1 - 10),
+                                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    
+                    # Print detected objects information
+                    if detected_objects:
+                        print("\nDetected Objects:")
+                        for i, obj in enumerate(detected_objects):
+                            print(f"{i+1}. {obj['class_name']} (Conf: {obj['confidence']:.2f})")
+                            print(f"   Position: Center=({obj['center'][0]}, {obj['center'][1]})")
+                            print(f"   Distance: {obj['distance']:.0f} mm")
+                            print(f"   Bounding Box: {obj['bbox']}")
+                    
+                    # Calculate FPS
+                    current_time = time.time()
+                    fps = 1 / (current_time - prev_time)
+                    prev_time = current_time
+                    cv2.putText(frame, f'FPS: {fps:.1f}', (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    
+                    # Display the frame
+                    cv2.imshow('MaixSense YOLO Detection', frame)
+                else:
+                    if rgb_data is None:
+                        print("Error: No RGB data in frame")
+                    if depth_frame is None:
+                        print("Error: No depth data in frame")
+            else:
+                print("Error: Failed to get frame from MaixSense")
+                time.sleep(0.5)
+                
+        except Exception as e:
+            print(f"Error processing frame: {e}")
+            time.sleep(1)  # Wait before retrying
+            
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cv2.destroyAllWindows()
 
-    plt.ioff()
+def post_encode_config(config, host, port=80):
+    try:
+        r = requests.post(f'http://{host}:{port}/set_cfg', config)
+        return r.status_code == requests.codes.ok
+    except Exception as e:
+        print(f"Error setting config: {e}")
+        return False
+
+if __name__ == '__main__':
+    main()

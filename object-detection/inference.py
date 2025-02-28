@@ -1,8 +1,8 @@
+#inference.py
 import cv2
 from ultralytics import YOLO
 import time
 import os
-<<<<<<< HEAD
 import requests
 import numpy as np
 import socket

@@ -97,11 +97,8 @@ def get_distance_from_depth(depth_frame, center_x, center_y, rgb_width=640, rgb_
     # Get depth value at the center point
     depth_value = depth_frame[depth_y, depth_x]
     
-    # Convert depth value to distance in mm
-    if deep_mode == 0:  # 16-bit mode
-        distance_mm = depth_value
-    else:  # 8-bit mode
-        distance_mm = (depth_value / 5.1) ** 2
+    # Depth value in mm
+    distance_mm = depth_value
     
     return distance_mm
 

@@ -29,6 +29,10 @@ from geometry_msgs.msg import PoseStamped
 #to use state machine
 from state_machine import RobotStateMachine
 
+#for UART command message construction
+# import struct
+from uart_transmitter import UART_Transmitter
+
 class decision_maker(Node):
     
     
@@ -55,8 +59,6 @@ class decision_maker(Node):
 
 
         #NEW default is trajector planner (use A* based on cost_map)
-
-
         # if motion_type==POINT_PLANNER:
         #     self.controller=controller(klp=0.2, klv=0.5, kap=0.8, kav=0.6)      
         #     self.planner=planner(POINT_PLANNER)
@@ -81,7 +83,7 @@ class decision_maker(Node):
         self.drop_off_locations = [
             #(x, y, z) coordinates for dropoff
             (5.0, 5.0, 0.5), 
-            (6.0, 6.0, 0.3), 
+            (5.1, 5.3, 0.3), 
             (7.0, 7.0, 0.7)
         ]
         
@@ -90,6 +92,9 @@ class decision_maker(Node):
 
         #create instance of robot state machine to use
         self.state_machine = RobotStateMachine()
+
+        # NEW - initialize UART Transmitter object for sending msgs
+        self.uart = UART_Transmitter(port="/dev/ttyTHS1", baudrate=115200)
 
 
 
@@ -107,9 +112,9 @@ class decision_maker(Node):
         print("Simulating object detection...")
         predefined_objects = [
             # (x, y) coordinates
-            (2.0, 3.0), 
-            (-1.5, 4.5), 
-            (1.0, -2.5) 
+            (2.0, 3.0, 0.0), 
+            (-1.5, 4.5, 0.0), 
+            (1.0, -2.5, 0.0) 
         ]
         return predefined_objects
     
@@ -117,7 +122,18 @@ class decision_maker(Node):
     def pick_up_object(self):
         #send pick command to STM32
         print("Sending pickup command to STM32...")
+        if not self.object_queue:
+            self.get_logger().warn("No objects to pick")
+            return False
+        
+        #obtain object location from queue
+        x, y, z = self.object_queue[0]
 
+        #send PICK command (type 0)
+        self.uart.send_command(0, x, y, z)
+
+        #manual delay to allow for operation?
+        # time.sleep(2)
 
         return True
 
@@ -125,6 +141,14 @@ class decision_maker(Node):
     def place_object(self):
         #send place command to STM32
         print("Sending placement command to STM32...")
+        if not self.drop_off_locations:
+            self.get_logger().warn("No drop-off locations configured")
+            return False
+
+        x, y, z = self.drop_off_locations[self.current_drop_off_index ]
+        
+        #send PLACE command (type 1)
+        self.uart.send_command(1, x, y, z)
 
 
         return True
@@ -276,8 +300,8 @@ class decision_maker(Node):
                 x_dropoff, y_dropoff, z_dropoff = self.drop_off_locations[self.current_drop_off_index]
                 print(f"Assigned drop-off location: ({x_dropoff}, {y_dropoff}, {z_dropoff})")
                 self.goal = (x_dropoff, y_dropoff)
-                #update dropoff index for next object
-                self.current_drop_off_index += 1
+                #update dropoff index for next object - only for sim testing (now updated in PLACE)
+                # self.current_drop_off_index += 1
 
                 self.state_machine.plan_path_to_destination()
 
@@ -312,6 +336,8 @@ class decision_maker(Node):
             
             if success:
                 print("Object placed successfully.")
+                #update drop_off_index to next in list:
+                self.current_drop_off_index = (self.current_drop_off_index + 1) % len(self.drop_off_locations)
                 
                 if not len(self.object_queue): 
                     return 

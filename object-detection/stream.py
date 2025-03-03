@@ -274,6 +274,12 @@ def main():
                             class_name = model.names[class_id]
 
                             x_world, y_world, z_world = image_coord_to_world(center_x, center_y, distance_mm, fx, fy, cx, cy)
+
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                            cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
+                            label = f"{class_name} {conf:.2f} {distance_mm:.0f}mm"
+                            cv2.putText(frame, label, (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                             
                             # Add to detected objects list
                             detected_objects.append({
@@ -290,15 +296,14 @@ def main():
                 print(f"FPS: {fps:.1f}")
                 print("Tracked Objects:")
 
+                # Calculate FPS
+                current_time = time.time()
+                fps = 1 / (current_time - prev_time)
+                prev_time = current_time
+                cv2.putText(frame, f'FPS: {fps:.1f}', (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
                 for obj_id, obj in tracked_objects.items():
-                    x1, y1, x2, y2 = obj['bbox']
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.circle(frame, obj['center'], 5, (0, 0, 255), -1)
-                    
-                    label = f"ID:{obj_id} {obj['class_name']} {obj['confidence']:.2f} {obj['distance']:.0f}mm"
-                    cv2.putText(frame, label, (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    
                     print(f"  Object ID: {obj_id}")
                     print(f"    Class: {obj['class_name']}")
                     print(f"    Confidence: {obj['confidence']:.2f}")
@@ -315,13 +320,6 @@ def main():
                         label = f"ID:{obj_id} {obj['class_name']} {obj['confidence']:.2f} {obj['distance']:.0f}mm"
                         cv2.putText(frame, label, (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-                    # Calculate FPS
-                    current_time = time.time()
-                    fps = 1 / (current_time - prev_time)
-                    prev_time = current_time
-                    cv2.putText(frame, f'FPS: {fps:.1f}', (10, 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     
                     # Display the frame
                     cv2.imshow('MaixSense YOLO Detection', frame)

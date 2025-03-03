@@ -11,6 +11,11 @@ from io import BytesIO
 
 os.environ["OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS"] = "0"
 
+# Global variables for object tracking
+MAX_DISAPPEARED = 30
+objects = {}
+next_object_id = 0
+
 def test_connection(ip, port=80, timeout=2):
     """Test if the device is reachable on the network"""
     try:
@@ -102,10 +107,90 @@ def get_distance_from_depth(depth_frame, center_x, center_y, rgb_width=640, rgb_
     
     return distance_mm
 
+def calculate_iou(bbox1, bbox2):
+    x1, y1, x2, y2 = bbox1
+    x1_, y1_, x2_, y2_ = bbox2
+    
+    xi1 = max(x1, x1_)
+    yi1 = max(y1, y1_)
+    xi2 = min(x2, x2_)
+    yi2 = min(y2, y2_)
+    
+    inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+    
+    box1_area = (x2 - x1) * (y2 - y1)
+    box2_area = (x2_ - x1_) * (y2_ - y1_)
+    
+    union_area = box1_area + box2_area - inter_area
+    
+    iou = inter_area / union_area if union_area > 0 else 0
+    return iou
+
+def update_object_tracking(detected_objects):
+    global objects
+
+    # Increment disappeared count for all existing objects
+    for object_id in list(objects.keys()):
+        objects[object_id]['disappeared'] += 1
+
+    # Update or add new objects
+    for detected_object in detected_objects:
+        matched = False
+        for object_id, obj in objects.items():
+            if calculate_iou(detected_object['bbox'], obj['bbox']) > 0.5:
+                objects[object_id].update({
+                    'bbox': detected_object['bbox'],
+                    'class_name': detected_object['class_name'],
+                    'confidence': detected_object['confidence'],
+                    'center': detected_object['center'],
+                    'distance': detected_object['distance'],
+                    'disappeared': 0
+                })
+                matched = True
+                break
+
+        if not matched:
+            new_id = max(objects.keys()) + 1 if objects else 1
+            objects[new_id] = {
+                'bbox': detected_object['bbox'],
+                'class_name': detected_object['class_name'],
+                'confidence': detected_object['confidence'],
+                'center': detected_object['center'],
+                'distance': detected_object['distance'],
+                'disappeared': 0
+            }
+
+    # Remove objects that have been disappeared for too long
+    for object_id in list(objects.keys()):
+        if objects[object_id]['disappeared'] > MAX_DISAPPEARED:
+            del objects[object_id]
+
+    return objects
+
+def image_coord_to_world(x, y, distance, fx, fy, cx, cy):
+    """Convert image coordinates and distance to world coordinates"""
+    # Calculate normalized image coordinates
+    x_norm = (x - cx) / fx
+    y_norm = (cy - y) / fy
+    
+    # Calculate scaling factor
+    scale = distance / np.sqrt(x_norm**2 + y_norm**2 + 1)
+    
+    # Calculate world coordinates
+    x_world = x_norm * scale
+    y_world = y_norm * scale
+    z_world = scale  # This is the depth component
+    
+    return x_world, y_world, z_world
+
+
 def main():
     # MaixSense A075V camera IP address
     maixsense_ip = "192.168.233.1"
     port = 80
+
+    fx, fy = 320, 320  # Focal length
+    cx, cy = 320, 240  # Principal point
     
     # Check if device is reachable
     print(f"Testing connection to MaixSense at {maixsense_ip}...")
@@ -156,6 +241,9 @@ def main():
                 if depth_data:
                     depth_frame = np.frombuffer(depth_data, 'uint16' if 0 == config[1] else 'uint8').reshape(240, 320)
                 
+                # Store detected objects with positions
+                detected_objects = []
+
                 if rgb_data and depth_frame is not None:
                     # Convert RGB data to numpy array
                     rgb_frame = np.frombuffer(rgb_data, 'uint8').reshape((480, 640, 3))
@@ -165,9 +253,6 @@ def main():
                     
                     # Run object detection
                     results = model(frame, conf=0.5, classes=selected_classes)
-                    
-                    # Store detected objects with positions
-                    detected_objects = []
                     
                     for result in results:
                         boxes = result.boxes  # Boxes object for bbox outputs
@@ -187,6 +272,8 @@ def main():
                             class_id = int(box.cls[0])
                             conf = float(box.conf[0])
                             class_name = model.names[class_id]
+
+                            x_world, y_world, z_world = image_coord_to_world(center_x, center_y, distance_mm, fx, fy, cx, cy)
                             
                             # Add to detected objects list
                             detected_objects.append({
@@ -196,27 +283,39 @@ def main():
                                 'center': (center_x, center_y),
                                 'distance': distance_mm
                             })
-                            
-                            # Draw bounding box
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                            
-                            # Draw center point
-                            cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
-                            
-                            # Display label with class, confidence, position and distance
-                            label = f'{class_name} {conf:.2f} ({center_x},{center_y}) {distance_mm:.0f}mm'
-                            cv2.putText(frame, label, (x1, y1 - 10),
-                                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+                tracked_objects = update_object_tracking(detected_objects)
+                
+                print("\n--- Frame Information ---")
+                print(f"FPS: {fps:.1f}")
+                print("Tracked Objects:")
+
+                for obj_id, obj in tracked_objects.items():
+                    x1, y1, x2, y2 = obj['bbox']
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.circle(frame, obj['center'], 5, (0, 0, 255), -1)
                     
-                    # Print detected objects information
-                    if detected_objects:
-                        print("\nDetected Objects:")
-                        for i, obj in enumerate(detected_objects):
-                            print(f"{i+1}. {obj['class_name']} (Conf: {obj['confidence']:.2f})")
-                            print(f"   Position: Center=({obj['center'][0]}, {obj['center'][1]})")
-                            print(f"   Distance: {obj['distance']:.0f} mm")
-                            print(f"   Bounding Box: {obj['bbox']}")
+                    label = f"ID:{obj_id} {obj['class_name']} {obj['confidence']:.2f} {obj['distance']:.0f}mm"
+                    cv2.putText(frame, label, (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                     
+                    print(f"  Object ID: {obj_id}")
+                    print(f"    Class: {obj['class_name']}")
+                    print(f"    Confidence: {obj['confidence']:.2f}")
+                    print(f"    Bounding Box: ({x1}, {y1}, {x2}, {y2})")
+                    print(f"    Center (image coordinates): ({center_x}, {center_y})")
+                    print(f"    World Coordinates (mm): X={x_world:.2f}, Y={y_world:.2f}, Z={z_world:.2f}")
+                    print(f"    Distance: {obj['distance']:.2f} mm")
+                    print(f"    Disappeared count: {obj['disappeared']}")
+                    print()
+
+                    if obj['disappeared'] == 0:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        cv2.circle(frame, (center_x, center_y), 5, (0, 0, 255), -1)
+                        label = f"ID:{obj_id} {obj['class_name']} {obj['confidence']:.2f} {obj['distance']:.0f}mm"
+                        cv2.putText(frame, label, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
                     # Calculate FPS
                     current_time = time.time()
                     fps = 1 / (current_time - prev_time)

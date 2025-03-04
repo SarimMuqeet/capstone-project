@@ -1,0 +1,3 @@
+[0.599s] Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_cpp -- -j6 -l6
+[0.682s] [35m[1mConsolidate compiler generated dependencies of target publisher[0m
+[0.724s] [100%] Built target publisher

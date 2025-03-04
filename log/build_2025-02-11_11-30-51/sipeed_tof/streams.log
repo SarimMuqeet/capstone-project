@@ -1,0 +1,24 @@
+[1.425s] Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof': PYTHONPATH=/home/homey/Desktop/capstone-project/build/sipeed_tof/prefix_override:/home/homey/.local/lib/python3.10/site-packages/colcon_core/task/python/colcon_distutils_commands:/home/homey/Desktop/capstone-project/install/sipeed_tof/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/homey/Desktop/capstone-project/build/sipeed_tof/build --no-deps symlink_data
+[2.041s] running develop
+[2.346s] running egg_info
+[2.346s] creating sipeed_tof.egg-info
+[2.346s] writing sipeed_tof.egg-info/PKG-INFO
+[2.347s] writing dependency_links to sipeed_tof.egg-info/dependency_links.txt
+[2.347s] writing entry points to sipeed_tof.egg-info/entry_points.txt
+[2.348s] writing requirements to sipeed_tof.egg-info/requires.txt
+[2.348s] writing top-level names to sipeed_tof.egg-info/top_level.txt
+[2.348s] writing manifest file 'sipeed_tof.egg-info/SOURCES.txt'
+[2.352s] reading manifest file 'sipeed_tof.egg-info/SOURCES.txt'
+[2.353s] writing manifest file 'sipeed_tof.egg-info/SOURCES.txt'
+[2.468s] running build_ext
+[2.468s] Creating /home/homey/Desktop/capstone-project/install/sipeed_tof/lib/python3.10/site-packages/sipeed-tof.egg-link (link to .)
+[2.470s] Installing publisher script to /home/homey/Desktop/capstone-project/install/sipeed_tof/lib/sipeed_tof
+[2.471s] 
+[2.471s] Installed /home/homey/Desktop/capstone-project/build/sipeed_tof
+[2.471s] running symlink_data
+[2.471s] creating /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index
+[2.472s] creating /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index/resource_index
+[2.472s] creating /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index/resource_index/packages
+[2.472s] symbolically linking /home/homey/Desktop/capstone-project/build/sipeed_tof/resource/sipeed_tof -> /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index/resource_index/packages
+[2.472s] symbolically linking /home/homey/Desktop/capstone-project/build/sipeed_tof/package.xml -> /home/homey/Desktop/capstone-project/install/sipeed_tof/share/sipeed_tof
+[2.568s] Invoked command in '/home/homey/Desktop/capstone-project/build/sipeed_tof' returned '0': PYTHONPATH=/home/homey/Desktop/capstone-project/build/sipeed_tof/prefix_override:/home/homey/.local/lib/python3.10/site-packages/colcon_core/task/python/colcon_distutils_commands:/home/homey/Desktop/capstone-project/install/sipeed_tof/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/homey/Desktop/capstone-project/build/sipeed_tof/build --no-deps symlink_data

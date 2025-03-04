@@ -1,0 +1,10 @@
+[0.583s] Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010 -- -j6 -l6
+[0.689s] [ 20%] [32mBuilding CXX object CMakeFiles/publisher.dir/src/main.cc.o[0m
+[0.711s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a010_ros/ros2/src/main.cc:1:10:[m[K [01;31m[Kfatal error: [m[Kcv_bridge/cv_bridge.hpp: No such file or directory
+[0.711s]     1 | #include [01;31m[K<cv_bridge/cv_bridge.hpp>[m[K
+[0.711s]       |          [01;31m[K^~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[0.711s] compilation terminated.
+[0.715s] gmake[2]: *** [CMakeFiles/publisher.dir/build.make:76: CMakeFiles/publisher.dir/src/main.cc.o] Error 1
+[0.715s] gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/publisher.dir/all] Error 2
+[0.716s] gmake: *** [Makefile:146: all] Error 2
+[0.721s] Invoked command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010' returned '2': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010 -- -j6 -l6

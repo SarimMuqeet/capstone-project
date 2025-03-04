@@ -1,0 +1,22 @@
+running develop
+running egg_info
+creating sipeed_tof.egg-info
+writing sipeed_tof.egg-info/PKG-INFO
+writing dependency_links to sipeed_tof.egg-info/dependency_links.txt
+writing entry points to sipeed_tof.egg-info/entry_points.txt
+writing requirements to sipeed_tof.egg-info/requires.txt
+writing top-level names to sipeed_tof.egg-info/top_level.txt
+writing manifest file 'sipeed_tof.egg-info/SOURCES.txt'
+reading manifest file 'sipeed_tof.egg-info/SOURCES.txt'
+writing manifest file 'sipeed_tof.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/homey/Desktop/capstone-project/install/sipeed_tof/lib/python3.10/site-packages/sipeed-tof.egg-link (link to .)
+Installing publisher script to /home/homey/Desktop/capstone-project/install/sipeed_tof/lib/sipeed_tof
+
+Installed /home/homey/Desktop/capstone-project/build/sipeed_tof
+running symlink_data
+creating /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index
+creating /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index/resource_index
+creating /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index/resource_index/packages
+symbolically linking /home/homey/Desktop/capstone-project/build/sipeed_tof/resource/sipeed_tof -> /home/homey/Desktop/capstone-project/install/sipeed_tof/share/ament_index/resource_index/packages
+symbolically linking /home/homey/Desktop/capstone-project/build/sipeed_tof/package.xml -> /home/homey/Desktop/capstone-project/install/sipeed_tof/share/sipeed_tof

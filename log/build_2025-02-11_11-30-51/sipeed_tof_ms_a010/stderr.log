@@ -1,0 +1,12 @@
+[01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a010_ros/ros2/src/main.cc:1:10:[m[K [01;31m[Kfatal error: [m[Kcv_bridge/cv_bridge.hpp: No such file or directory
+    1 | #include [01;31m[K<cv_bridge/cv_bridge.hpp>[m[K
+      |          [01;31m[K^~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+compilation terminated.
+gmake[2]: *** [CMakeFiles/publisher.dir/build.make:76: CMakeFiles/publisher.dir/src/main.cc.o] Error 1
+gmake[2]: *** Waiting for unfinished jobs....
+In file included from [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a010_ros/ros2/src/frame_handle.cc:8[m[K:
+[01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a010_ros/ros2/src/frame_struct.h:36:11:[m[K [01;35m[Kwarning: [m[KISO C++ forbids flexible array member ‘[01m[Kpayload[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wpedantic-Wpedantic]8;;[m[K]
+   36 |   uint8_t [01;35m[Kpayload[m[K[];
+      |           [01;35m[K^~~~~~~[m[K
+gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/publisher.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2

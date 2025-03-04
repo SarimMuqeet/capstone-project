@@ -1,0 +1,10 @@
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/uninstall.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/sipeed_tof_ms_a010_uninstall.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/publisher.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/test.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/edit_cache.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/rebuild_cache.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/list_install_components.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/install.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/install/local.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010/CMakeFiles/install/strip.dir

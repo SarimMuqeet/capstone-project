@@ -1,0 +1,87 @@
+[0.535s] Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/homey/Desktop/capstone-project/install/sipeed_tof_cpp
+[0.652s] -- The C compiler identification is GNU 11.4.0
+[0.773s] -- The CXX compiler identification is GNU 11.4.0
+[0.793s] -- Detecting C compiler ABI info
+[0.938s] -- Detecting C compiler ABI info - done
+[0.963s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.964s] -- Detecting C compile features
+[0.965s] -- Detecting C compile features - done
+[0.975s] -- Detecting CXX compiler ABI info
+[1.145s] -- Detecting CXX compiler ABI info - done
+[1.172s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[1.172s] -- Detecting CXX compile features
+[1.174s] -- Detecting CXX compile features - done
+[1.182s] -- Found ament_cmake: 1.3.11 (/opt/ros/humble/share/ament_cmake/cmake)
+[1.584s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[1.752s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[1.794s] -- Found std_msgs: 4.2.4 (/opt/ros/humble/share/std_msgs/cmake)
+[1.852s] -- Found rosidl_generator_c: 3.1.6 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[1.860s] -- Found rosidl_adapter: 3.1.6 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[1.874s] -- Found rosidl_generator_cpp: 3.1.6 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[1.895s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[1.924s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.971s] -- Found sensor_msgs: 4.2.4 (/opt/ros/humble/share/sensor_msgs/cmake)
+[2.027s] -- Found rclcpp: 16.0.11 (/opt/ros/humble/share/rclcpp/cmake)
+[2.089s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[2.093s] -- Found rmw_fastrtps_cpp: 6.2.7 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[2.234s] -- Found OpenSSL: /usr/lib/aarch64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[2.283s] -- Found FastRTPS: /opt/ros/humble/include  
+[2.355s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[2.369s] -- Looking for pthread.h
+[2.510s] -- Looking for pthread.h - found
+[2.510s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[2.664s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[2.668s] -- Found Threads: TRUE  
+[2.764s] -- Found OpenCV: /usr (found version "4.8.0") 
+[2.766s] -- Found cv_bridge: 3.2.1 (/opt/ros/humble/share/cv_bridge/cmake)
+[2.774s] -- Found ament_lint_auto: 0.12.11 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[2.955s] -- Added test 'copyright' to check source files copyright and LICENSE
+[2.957s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[2.957s] -- Configured cppcheck include dirs: 
+[2.957s] -- Configured cppcheck exclude dirs and/or files: 
+[2.959s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[2.959s] -- Configured cpplint exclude dirs and/or files: 
+[2.960s] -- Added test 'lint_cmake' to check CMake code style
+[2.962s] -- Added test 'uncrustify' to check C / C++ code style
+[2.962s] -- Configured uncrustify additional arguments: 
+[2.963s] -- Added test 'xmllint' to check XML markup files
+[2.966s] -- Configuring done
+[2.994s] -- Generating done
+[3.004s] -- Build files have been written to: /home/homey/Desktop/capstone-project/build/sipeed_tof_cpp
+[3.037s] Invoked command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/homey/Desktop/capstone-project/install/sipeed_tof_cpp
+[3.044s] Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_cpp -- -j6 -l6
+[3.161s] [ 50%] [32mBuilding CXX object CMakeFiles/publisher.dir/src/publisher.cpp.o[0m
+[3.164s] [ 50%] [32mBuilding C object CMakeFiles/publisher.dir/src/cJSON.c.o[0m
+[3.164s] [ 75%] [32mBuilding CXX object CMakeFiles/publisher.dir/src/process.cpp.o[0m
+[11.386s] In file included from [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/publisher.cpp:26[m[K:
+[11.386s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/process.hpp:[m[K In lambda function:
+[11.386s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/process.hpp:424:48:[m[K [01;35m[Kwarning: [m[Kunused parameter ‘[01m[Kcinfo[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-parameter-Wunused-parameter]8;;[m[K]
+[11.387s]   424 |                 err.error_exit=[]([01;35m[Kj_common_ptr cinfo[m[K){};
+[11.387s]       |                                   [01;35m[K~~~~~~~~~~~~~^~~~~[m[K
+[11.389s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/publisher.cpp:[m[K In function ‘[01m[Kvoid http_request_done(evhttp_request*, void*)[m[K’:
+[11.389s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/publisher.cpp:60:9:[m[K [01;35m[Kwarning: [m[Kcomparison of integer expressions of different signedness: ‘[01m[Kint[m[K’ and ‘[01m[Klong unsigned int[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wsign-compare-Wsign-compare]8;;[m[K]
+[11.389s]    60 |     if([01;35m[Ks<sizeof(requestdata)[m[K){
+[11.389s]       |        [01;35m[K~^~~~~~~~~~~~~~~~~~~~[m[K
+[11.457s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/publisher.cpp:[m[K In member function ‘[01m[Kvoid PointCloudPublisher::timer_callback()[m[K’:
+[11.458s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/publisher.cpp:172:13:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kret[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+[11.458s]   172 |         int [01;35m[Kret[m[K=send_request(EVHTTP_REQ_GET,"/getdeep",0,0);
+[11.458s]       |             [01;35m[K^~~[m[K
+[14.648s] In file included from [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/process.hpp:5[m[K,
+[14.649s]                  from [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/publisher.cpp:26[m[K:
+[14.649s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/data_structs.h:[m[K In member function ‘[01m[Kint all_config_t::get_depth_size()[m[K’:
+[14.649s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/data_structs.h:27:5:[m[K [01;35m[Kwarning: [m[Kcontrol reaches end of non-void function [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreturn-type-Wreturn-type]8;;[m[K]
+[14.649s]    27 |     [01;35m[K}[m[K
+[14.649s]       |     [01;35m[K^[m[K
+[14.649s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/data_structs.h:[m[K In member function ‘[01m[Kint all_config_t::get_ir_size()[m[K’:
+[14.649s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/data_structs.h:33:5:[m[K [01;35m[Kwarning: [m[Kcontrol reaches end of non-void function [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreturn-type-Wreturn-type]8;;[m[K]
+[14.649s]    33 |     [01;35m[K}[m[K
+[14.650s]       |     [01;35m[K^[m[K
+[14.650s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/data_structs.h:[m[K In member function ‘[01m[Kint all_config_t::get_status_size()[m[K’:
+[14.650s] [01m[K/home/homey/Desktop/capstone-project/object-detection/MaixSense_ROS/sipeed_tof_ms_a075_ros/ros2/src/sipeed_tof_cpp/src/data_structs.h:41:5:[m[K [01;35m[Kwarning: [m[Kcontrol reaches end of non-void function [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wreturn-type-Wreturn-type]8;;[m[K]
+[14.650s]    41 |     [01;35m[K}[m[K;
+[14.650s]       |     [01;35m[K^[m[K
+[18.513s] [100%] [32m[1mLinking CXX executable publisher[0m
+[18.798s] /usr/bin/ld: warning: libopencv_imgcodecs.so.4.5d, needed by /opt/ros/humble/lib/libcv_bridge.so, may conflict with libopencv_imgcodecs.so.408
+[18.799s] /usr/bin/ld: warning: libopencv_imgproc.so.4.5d, needed by /opt/ros/humble/lib/libcv_bridge.so, may conflict with libopencv_imgproc.so.408
+[18.800s] /usr/bin/ld: warning: libopencv_core.so.4.5d, needed by /opt/ros/humble/lib/libcv_bridge.so, may conflict with libopencv_core.so.408
+[19.599s] [100%] Built target publisher

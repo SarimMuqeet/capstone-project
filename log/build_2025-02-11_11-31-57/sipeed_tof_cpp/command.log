@@ -1,0 +1,1 @@
+Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_cpp -- -j6 -l6

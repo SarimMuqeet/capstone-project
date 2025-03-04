@@ -1,0 +1,10 @@
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/uninstall.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/sipeed_tof_cpp_uninstall.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/publisher.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/test.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/edit_cache.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/rebuild_cache.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/list_install_components.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/install.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/install/local.dir
+/home/homey/Desktop/capstone-project/build/sipeed_tof_cpp/CMakeFiles/install/strip.dir

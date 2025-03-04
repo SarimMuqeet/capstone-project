@@ -1,0 +1,2 @@
+Invoking command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010 -- -j6 -l6
+Invoked command in '/home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010' returned '2': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/homey/Desktop/capstone-project/build/sipeed_tof_ms_a010 -- -j6 -l6

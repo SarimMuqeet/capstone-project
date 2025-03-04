@@ -153,10 +153,14 @@ class mapManipulator(Node):
         return self.o_x + i*self.getResolution(),    (self.height - j) * self.getResolution()  + self.o_y  
     
     
+    # def position_2_cell(self, pos):
+    #     x,y = pos
+    #     return floor( (-self.o_x + x)/self.getResolution()), -floor( -self.height + (-self.o_y + y)/self.getResolution() )
     def position_2_cell(self, pos):
-        x,y = pos
-        return floor( (-self.o_x + x)/self.getResolution()), -floor( -self.height + (-self.o_y + y)/self.getResolution() )
-
+        x, y = pos
+        cell_x = int( (x - self.o_x) / self.res )
+        cell_y = self.height - 1 - int( (y - self.o_y) / self.res )
+        return (cell_x, cell_y)
 
     def make_likelihood_field(self):
         

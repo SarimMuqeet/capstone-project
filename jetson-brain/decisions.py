@@ -51,7 +51,7 @@ class decision_maker(Node):
 
         # TODO PART 5 choose your threshold
         # NEW increased threshold to account for arm length (when pick and place occurring)
-        self.reachThreshold=0.2
+        self.reachThreshold=0.001 # NEW, prev 0.2 for lab
 
         # TODO PART 5 your localization type
         #self.localizer=localization(type=kalmanFilter)
@@ -75,6 +75,8 @@ class decision_maker(Node):
         # NEW - init trajectory planner by default
         self.controller=trajectoryController(klp = 0.4, klv = 0.5, kli=0.2, kap = 0.4, kav=0.2, kai=0.2)      
         self.planner=planner(TRAJECTORY_PLANNER)
+        # self.controller=controller(klp=0.2, klv=0.5, kap=0.8, kav=0.6)  
+        # self.planner=planner(POINT_PLANNER)
 
         # NEW create queue for detected objects with positions
         self.object_queue = []
@@ -82,9 +84,15 @@ class decision_maker(Node):
         # self.drop_off_locations = [[5.0, 5.0], [6.0, 6.0], [7.0, 7.0]]
         self.drop_off_locations = [
             #(x, y, z) coordinates for dropoff
-            (5.0, 5.0, 0.5), 
-            (5.1, 5.3, 0.3), 
-            (7.0, 7.0, 0.7)
+            #out of bounds?
+            # (5.0, 5.0, 0.5), 
+            # (5.1, 5.3, 0.3), 
+            # (7.0, 7.0, 0.7)
+
+            # NEW:
+            (0.7, 0.0, 0.5), 
+            (0.1, 0.3, 0.3), 
+            (0.4, 0.0, 0.7)
         ]
         
         #to keep track of index for drop off locations
@@ -108,14 +116,36 @@ class decision_maker(Node):
 
     # NEW 
     def run_object_detection(self):
-        #sim object detection for now
+        #simulation object detection for now
         print("Simulating object detection...")
         predefined_objects = [
-            # (x, y) coordinates
-            (2.0, 3.0, 0.0), 
-            (-1.5, 4.5, 0.0), 
+            # (x, y, z) coordinates
+            #out of bounds?
+            # (2.0, 3.0, 0.0), 
+            # (-1.5, 4.5, 0.0), 
+            # (1.0, -2.5, 0.0) 
+
+            # NEW
+            # (0.2, 0.2, 0.03), 
+            (0.2, 0.2, 0.03), 
+            (0.2, -0.7, 0.03), 
+            (0.5, 0.5, 0.0), 
             (1.0, -2.5, 0.0) 
         ]
+
+
+        # # Debugging Filter out of bounds
+        # valid_objects = []
+        # max_rows, max_cols = self.planner.costMap.shape
+        # for obj in predefined_objects:
+        #     cell = self.planner.m_utilites.position_2_cell(obj[:2])
+        #     if 0 <= cell[0] < max_rows and 0 <= cell[1] < max_cols:
+        #         valid_objects.append(obj)
+        #     else:
+        #         print(f"Object {obj} is out of bounds (cell: {cell})")
+
+        # return valid_objects
+
         return predefined_objects
     
     # NEW 
@@ -174,12 +204,14 @@ class decision_maker(Node):
         print("inside timer callback start")
 
         #TO CHANGE / UNCOMMENT LATER: commented out for now as no odom simulation
-        #  ------------------------------------        
-        # spin_once(self.localizer)
+        #  ------------------------------------ 
+        # 
+        # To use on actual robot:      
+        spin_once(self.localizer)
 
-        # if self.localizer.getPose() is None:
-        #     print("waiting for odom msgs ....")
-        #     return
+        if self.localizer.getPose() is None:
+            print("waiting for odom msgs ....")
+            return
         
 
 
@@ -227,7 +259,7 @@ class decision_maker(Node):
 
 
 
-        # NEW 
+        # NEW ----------------------------------------------------------------
         if not hasattr(self, 'state_machine'):
             print("State machine not initialized")
             return
@@ -264,8 +296,11 @@ class decision_maker(Node):
 
             # Plan path to the next object in the queue
             target_object = self.object_queue[0]
+            print(f"target object (x,y): {target_object[:2]}")
+            print(f"current pose: {current_pose[:2]}")
             path = self.planner.plan(current_pose[:2], target_object[:2])
-            
+            print(f"path planned from: {current_pose[:2]} to {target_object[:2]}")
+
             if path:
                 print(f"Path planned to object, path is not empty!")
                 # Publish path for visualization in RViz
@@ -278,13 +313,13 @@ class decision_maker(Node):
                 self.publisher.publish(vel_msg)
 
                 # # Check if goal is reached
-                # if calculate_linear_error(current_pose, target_object) < self.reachThreshold:
-                #     print("Reached object.")
-                #     self.publisher.publish(Twist())  # Stop robot
-                #     self.state_machine.pick_object()
+                if calculate_linear_error(current_pose, target_object) < self.reachThreshold:
+                    print("Reached object.")
+                    self.publisher.publish(Twist())  # Stop robot
+                    self.state_machine.pick_object()
 
-                #simulate just moving to next state (in sim)
-                self.state_machine.pick_object()
+                #simulate just moving to next state (in simulation)
+                # self.state_machine.pick_object()
 
 
         elif self.state_machine.state == "PICK":
@@ -300,7 +335,7 @@ class decision_maker(Node):
                 x_dropoff, y_dropoff, z_dropoff = self.drop_off_locations[self.current_drop_off_index]
                 print(f"Assigned drop-off location: ({x_dropoff}, {y_dropoff}, {z_dropoff})")
                 self.goal = (x_dropoff, y_dropoff)
-                #update dropoff index for next object - only for sim testing (now updated in PLACE)
+                #update dropoff index for next object - only for simulation testing (now updated in PLACE)
                 # self.current_drop_off_index += 1
 
                 self.state_machine.plan_path_to_destination()
@@ -321,13 +356,13 @@ class decision_maker(Node):
                 self.publisher.publish(vel_msg)
 
                 #Check if goal is reached
-                # if calculate_linear_error(current_pose, self.goal) < self.reachThreshold:
-                #     print("Reached tidy destination.")
-                #     self.publisher.publish(Twist())  # Stop robot
-                #     self.state_machine.place_object()
+                if calculate_linear_error(current_pose, self.goal) < self.reachThreshold:
+                    print("Reached tidy destination.")
+                    self.publisher.publish(Twist())  # Stop robot
+                    self.state_machine.place_object()
 
-                #simulate just moving to next state (in sim)
-                self.state_machine.place_object()
+                #simulate just moving to next state (in simulation)
+                # self.state_machine.place_object()
 
         elif self.state_machine.state == "PLACE_OBJECT":
             print("State: PLACE_OBJECT")
@@ -379,16 +414,19 @@ def main(args=None):
     
     odom_qos=QoSProfile(reliability=2, durability=2, history=1, depth=10)
     
-    if args.motion == "point":
-        DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=POINT_PLANNER)
-    elif args.motion == "trajectory":
-        DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
-    else:
-        print("invalid motion type", file=sys.stderr)
+    # For Simulation
+
+    # if args.motion == "point":
+    #     DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=POINT_PLANNER)
+    # elif args.motion == "trajectory":
+    #     DM=decision_maker(Twist, "/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
+    # else:
+    #     print("invalid motion type", file=sys.stderr)
 
 
     # NEW for jackal1 cmd_vel topic
-    # DM=decision_maker(Twist, "/jackal1/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
+    DM=decision_maker(Twist, "/jackal1/cmd_vel", 10, motion_type=TRAJECTORY_PLANNER)
+    # DM=decision_maker(Twist, "/jackal1/cmd_vel", 10, motion_type=POINT_PLANNER)
 
 
 

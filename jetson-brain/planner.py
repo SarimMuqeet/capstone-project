@@ -12,6 +12,8 @@ class planner:
 
     
     def plan(self, startPose, endPose):
+
+        print(f"Type of planner {self.type} \n\n")
         
         if self.type==POINT_PLANNER:
             return self.point_planner(endPose)
@@ -46,9 +48,37 @@ class planner:
         # the path regardless. 
         startPose=self.m_utilites.position_2_cell(startPoseCart)
         endPose=self.m_utilites.position_2_cell(endPoseCart)
+
+        # # Debugging: Print the map boundaries and positions
+        # #------------------------------------------------------
+        # print(f"CostMap shape: {self.costMap.shape}")
+        # print(f"Start position (cartesian): {startPoseCart}, Start position (cell): {startPose}")
+        # print(f"End position (cartesian): {endPoseCart}, End position (cell): {endPose}")
         
+        # #Debugging:
+        # max_rows, max_cols = self.costMap.shape
+        # if not (0 <= startPose[0] < max_rows and 0 <= startPose[1] < max_cols):
+        #     print(f"Error: Start position {startPose} is out of bounds!")
+        #     return []
+        # if not (0 <= endPose[0] < max_rows and 0 <= endPose[1] < max_cols):
+        #     print(f"Error: End position {endPose} is out of bounds!")
+        #     return []
+
+        # # Ensure start and end positions are not in obstacles
+        # if self.costMap[startPose[0], startPose[1]] > 0.8:
+        #     print(f"Start position {startPose} is in an obstacle!")
+        #     return []
+        # if self.costMap[endPose[0], endPose[1]] > 0.8:
+        #     print(f"End position {endPose} is in an obstacle!")
+        #     return []
+        # #-------------------------------------------------------
+
         # TODO PART 5 convert the cell pixels into the cartesian coordinates
         #Find path using a_start algorithm
+        # print(f"CostMap {self.costMap}\n")
+
+        print(f"startPose {startPose}, endPose {endPose}\n")
+
         path = search(self.costMap, startPose, endPose)
         # TODO PART 5 convert the cell pixels into the cartesian coordinates
         Path = list(map(self.m_utilites.cell_2_position, path))

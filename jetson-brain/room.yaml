@@ -1,7 +1,6 @@
 image: room.pgm
-mode: trinary
-resolution: 0.05
-origin: [-5.96, -5.61, 0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.25
+resolution: 0.01  # meters per pixel (adjust based on your design)
+origin: [0.0, 0.0, 0.0]  # Starting pose (x, y, yaw in radians)
+occupied_thresh: 0.65    # Pixels darker than this are obstacles
+free_thresh: 0.25        # Pixels lighter than this are free space
+negate: 0                # 0 = no inversion, 1 = invert colors

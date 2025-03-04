@@ -22,7 +22,7 @@ import message_filters
 
 
 #for timestamp (hardcode) in simulation
-from builtin_interfaces.msg import Time
+# from builtin_interfaces.msg import Time
 
 
 
@@ -55,7 +55,9 @@ class localization(Node):
     
     def initRawSensors(self):
         # NEW need to use /jackal1/platform/odom if using jackal
-        self.create_subscription(odom, "/odom", self.odom_callback, qos_profile=odom_qos)
+        #For simulation: 
+        # self.create_subscription(odom, "/odom", self.odom_callback, qos_profile=odom_qos)
+        self.create_subscription(odom, "/jackal1/platform/odom", self.odom_callback, qos_profile=odom_qos)
 
     def initKalmanfilter(self):
         
@@ -150,14 +152,14 @@ class localization(Node):
         
     def getPose(self):
         # TO CHANGE, NEW --- handle no odom simulation method
-        if self.pose is None:
-            # Set a default pose if no odometry data has been received
-            print("No odom, setting default pose")
-            timestamp = Time(sec=0, nanosec=0)
-            return [0.0, 0.0, 0.0, timestamp]  # Example default pose: x=0, y=0, yaw=0
-        return self.pose
-        #Change to below later
+        # if self.pose is None:
+        #     # Set a default pose if no odometry data has been received
+        #     print("No odom, setting default pose")
+        #     timestamp = Time(sec=0, nanosec=0)
+        #     return [0.0, 0.0, 0.0, timestamp]  # Example default pose: x=0, y=0, yaw=0
         # return self.pose
+        #Change to below later
+        return self.pose
 
 
 if __name__=="__main__":

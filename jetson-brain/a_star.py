@@ -66,64 +66,210 @@ def heuristic(start, end):
         return manhattan_distance(start, end)
 
 
+# def search(maze, start, end):
+
+#     print("searching ....")
+
+#     maze = maze.T
+
+#     """
+#         Returns a list of tuples as a path from the given start to the given end in the given maze
+#         :param maze:
+#         :param cost
+#         :param start:
+#         :param end:
+#         :return:
+#     """
+
+#     # TODO PART 4 Create start and end node with initized values for g, h and f
+#     # Use None as parent if not defined
+#     start_node = Node(None, start)
+#     start_node.g = 0     # cost from start Node
+#     start_node.h = heuristic(start, end)     # heuristic estimated cost to end Node
+#     start_node.f = start_node.g + start_node.h
+
+#     end_node = Node(None, end)
+#     end_node.g = 100       # set a large value if not defined
+#     end_node.h = 0       # heuristic estimated cost to end Node
+#     end_node.f = end_node.g + end_node.h
+
+#     # Initialize both yet_to_visit and visited dictionary
+#     # in this dict we will put all node that are yet_to_visit for exploration.
+#     # From here we will find the lowest cost node to expand next
+#     yet_to_visit_dict = {}  # key is the position (tuple), value is the node
+#     # in this list we will put all node those already explored so that we don't explore it again
+#     # key is the position (tuple), value is True (boolean)
+#     visited_dict = {}
+
+#     # Add the start node
+#     yet_to_visit_dict[start_node.position] = start_node
+
+#     # Adding a stop condition. This is to avoid any infinite loop and stop
+#     # execution after some reasonable number of steps
+#     outer_iterations = 0
+#     max_iterations = (len(maze) // 2) ** 10
+
+#     # TODO PART 4 what squares do we search . serarch movement is left-right-top-bottom
+#     # (4 or 8 movements) from every positon
+#     move = [[-1, 0],  # go up
+#             [0, -1],  # go left
+#             [1, 0],  # go down
+#             [0, 1],  # go right
+#             [-1, -1],  # go up left
+#             [1, -1],  # go down left
+#             [-1, 1],  # go up right
+#             [1, 1]]  # go down right
+
+#     """
+#         1) We first get the current node by comparing all f cost and selecting the lowest cost node for further expansion
+#         2) Check max iteration reached or not . Set a message and stop execution
+#         3) Remove the selected node from yet_to_visit dict and add this node to visited dict
+#         4) Perofmr Goal test and return the path else perform below steps
+#         5) For selected node find out all children (use move to find children)
+#             a) get the current postion for the selected node (this becomes parent node for the children)
+#             b) check if a valid position exist (boundary will make few nodes invalid)
+#             c) if any node is a wall then ignore that
+#             d) add to valid children node list for the selected parent
+            
+#             For all the children node
+#                 a) if child in visited dict then ignore it and try next node
+#                 b) calculate child node g, h and f values
+#                 c) if child in yet_to_visit dict then ignore it
+#                 d) else move the child to yet_to_visit dict
+#     """
+#     # TODO PART 4 find maze has got how many rows and columns
+#     no_rows, no_columns = np.shape(maze)
+#     # no_rows, no_columns = len(maze), len(maze[0])
+
+#     # Loop until you find the end
+
+#     while len(yet_to_visit_dict) > 0:
+
+#         # Every time any node is referred from yet_to_visit list, counter of limit operation incremented
+#         outer_iterations += 1
+
+#         # Get the current node with the lowest f value
+#         current_node = None
+#         current_fscore = None
+#         for position, node in yet_to_visit_dict.items():
+#             if current_fscore is None or node.f < current_fscore:
+#                 current_fscore = node.f
+#                 current_node = node
+
+#         # if we hit this point return the path such as it may be no solution or
+#         # computation cost is too high
+#         if outer_iterations > max_iterations:
+#             print("giving up on pathfinding too many iterations")
+#             return return_path(current_node, maze)
+
+#         # Pop current node out off yet_to_visit dict, add to visited list
+#         yet_to_visit_dict.pop(current_node.position)
+#         visited_dict[current_node.position] = True
+
+#         # test if goal is reached or not, if yes then return the path
+#         if current_node == end_node:
+
+#             return return_path(current_node, maze)
+
+#         # Generate children from all adjacent squares
+#         children = []
+
+#         for new_position in move:
+
+#             # TODO PART 4 Get node position
+#             node_position = (current_node.position[0] + new_position[0], current_node.position[1] + new_position[1])
+
+#             # TODO PART 4 Make sure within range (check if within maze boundary)
+#             if (node_position[0] > no_rows or node_position[0] < 0 or node_position[1] > no_columns or node_position[1] < 0): #skip to next position if not in range
+#                 continue
+
+#             # Make sure walkable terrain
+#             if maze[node_position[0], node_position[1]] > 0.8:
+#                 continue
+
+#             # Create new node
+#             new_node = Node(current_node, node_position)
+
+#             # Append
+#             children.append(new_node)
+
+#         # Loop through children
+
+#         for child in children:
+
+#             # TODO PART 4 Child is on the visited dict (use get method to check if child is in visited dict, if not found then default value is False)
+#             if (visited_dict.get(child.position)):
+#                 continue
+
+#             # TODO PART 4 Create the f, g, and h values
+#             child.g = current_node.g + 1 #parent node g + 1 (each move moves 1)
+#             # Heuristic costs calculated here, this is using eucledian distance
+#             child.h = heuristic(child.position, end)
+
+#             child.f = child.g + child.h
+
+#             # Child is already in the yet_to_visit list and g cost is already lower
+#             child_node_in_yet_to_visit = yet_to_visit_dict.get(
+#                 child.position, False)
+#             if (child_node_in_yet_to_visit is not False) and (child.g >= child_node_in_yet_to_visit.g):
+#                 continue
+
+#             # Add the child to the yet_to_visit list
+#             yet_to_visit_dict[child.position] = child
+
+
+# Default search on a grid maze (implementation of Lab4)
 def search(maze, start, end):
-
-    print("searching ....")
-
-    maze = maze.T
-
     """
         Returns a list of tuples as a path from the given start to the given end in the given maze
-        :param maze:
-        :param cost
-        :param start:
-        :param end:
-        :return:
+        :param maze: the costMap
+        :param start: starting position as cell positions
+        :param end: goal position as cell positions
+        :pram scale_factor: scaling factor to reduce the maze and search to speed up the search
+        :return: path as tuples from the given start to the given end
     """
 
-    # TODO PART 4 Create start and end node with initized values for g, h and f
-    # Use None as parent if not defined
-    start_node = Node(None, start)
-    start_node.g = 0     # cost from start Node
-    start_node.h = heuristic(start, end)     # heuristic estimated cost to end Node
-    start_node.f = start_node.g + start_node.h
+    maze = maze.copy().T
+    # maze = maze[::scale_factor, ::scale_factor]  
 
-    end_node = Node(None, end)
-    end_node.g = 100       # set a large value if not defined
-    end_node.h = 0       # heuristic estimated cost to end Node
-    end_node.f = end_node.g + end_node.h
+    # Create start and end node with initized values for g, h and f
+    start_node = Node(None, tuple(start))
+    start_node.g = start_node.h = start_node.f = 0
 
-    # Initialize both yet_to_visit and visited dictionary
-    # in this dict we will put all node that are yet_to_visit for exploration.
+    end_node = Node(None, tuple(end))
+    end_node.g = end_node.h = end_node.f = 0
+
+    # Initialize both yet_to_visit and visited list
+    # in this list we will put all node that are yet_to_visit for exploration. 
     # From here we will find the lowest cost node to expand next
-    yet_to_visit_dict = {}  # key is the position (tuple), value is the node
-    # in this list we will put all node those already explored so that we don't explore it again
-    # key is the position (tuple), value is True (boolean)
-    visited_dict = {}
+    yet_to_visit_dict = {} # will save the node, key is the position (tuple)
+    # # in this list we will put all node those already explored so that we don't explore it again    
+    visited_dict = {}      # only save the True values, key is the position (tuple)
 
     # Add the start node
     yet_to_visit_dict[start_node.position] = start_node
-
-    # Adding a stop condition. This is to avoid any infinite loop and stop
+    
+    # Adding a stop condition. This is to avoid any infinite loop and stop 
     # execution after some reasonable number of steps
     outer_iterations = 0
     max_iterations = (len(maze) // 2) ** 10
 
-    # TODO PART 4 what squares do we search . serarch movement is left-right-top-bottom
-    # (4 or 8 movements) from every positon
-    move = [[-1, 0],  # go up
-            [0, -1],  # go left
-            [1, 0],  # go down
-            [0, 1],  # go right
-            [-1, -1],  # go up left
-            [1, -1],  # go down left
-            [-1, 1],  # go up right
-            [1, 1]]  # go down right
+    # what squares do we search . serarch movement is 8 point connectivity
+
+    move  =  [[-1, 0 ], # go up
+              [ 0, -1], # go left
+              [ 1, 0 ], # go down
+              [ 0, 1 ],
+              [-1, 1],
+              [-1, -1],
+              [1, 1],
+              [1, -1]] # go right
+
 
     """
         1) We first get the current node by comparing all f cost and selecting the lowest cost node for further expansion
         2) Check max iteration reached or not . Set a message and stop execution
-        3) Remove the selected node from yet_to_visit dict and add this node to visited dict
+        3) Remove the selected node from yet_to_visit list and add this node to visited list
         4) Perofmr Goal test and return the path else perform below steps
         5) For selected node find out all children (use move to find children)
             a) get the current postion for the selected node (this becomes parent node for the children)
@@ -132,59 +278,67 @@ def search(maze, start, end):
             d) add to valid children node list for the selected parent
             
             For all the children node
-                a) if child in visited dict then ignore it and try next node
+                a) if child in visited list then ignore it and try next node
                 b) calculate child node g, h and f values
-                c) if child in yet_to_visit dict then ignore it
-                d) else move the child to yet_to_visit dict
+                c) if child in yet_to_visit list then ignore it
+                d) else move the child to yet_to_visit list
     """
-    # TODO PART 4 find maze has got how many rows and columns
+    #find maze has got how many rows and columns 
     no_rows, no_columns = np.shape(maze)
-    # no_rows, no_columns = len(maze), len(maze[0])
+    
 
     # Loop until you find the end
-
+    
     while len(yet_to_visit_dict) > 0:
-
+        
         # Every time any node is referred from yet_to_visit list, counter of limit operation incremented
-        outer_iterations += 1
-
-        # Get the current node with the lowest f value
-        current_node = None
-        current_fscore = None
-        for position, node in yet_to_visit_dict.items():
-            if current_fscore is None or node.f < current_fscore:
-                current_fscore = node.f
-                current_node = node
-
-        # if we hit this point return the path such as it may be no solution or
+        outer_iterations += 1    
+        
+        # Get the current node
+        current_node_position = (-999, -999)
+        current_node = Node(None, tuple(current_node_position))
+        current_node.f = 999999
+        for i_position in yet_to_visit_dict.keys():
+            i_node = yet_to_visit_dict[i_position] ## first is g, second is f
+            if i_node.f < current_node.f: ## compare the f
+                current_node = i_node
+                
+        # if we hit this point return the path such as it may be no solution or 
         # computation cost is too high
         if outer_iterations > max_iterations:
-            print("giving up on pathfinding too many iterations")
-            return return_path(current_node, maze)
+            print ("giving up on pathfinding too many iterations")
+            return return_path(current_node,maze)
 
-        # Pop current node out off yet_to_visit dict, add to visited list
+        # Pop current node out off yet_to_visit list, add to visited list
         yet_to_visit_dict.pop(current_node.position)
         visited_dict[current_node.position] = True
 
         # test if goal is reached or not, if yes then return the path
         if current_node == end_node:
-
-            return return_path(current_node, maze)
+            print ("Goal reached")
+            return return_path(current_node,maze)
 
         # Generate children from all adjacent squares
         children = []
 
-        for new_position in move:
+        for new_position in move: 
 
-            # TODO PART 4 Get node position
+            # Get node position
             node_position = (current_node.position[0] + new_position[0], current_node.position[1] + new_position[1])
 
-            # TODO PART 4 Make sure within range (check if within maze boundary)
-            if (node_position[0] > no_rows or node_position[0] < 0 or node_position[1] > no_columns or node_position[1] < 0): #skip to next position if not in range
+            # Debugging: Print the node position and boundaries
+            # print(f"Checking node_position: {node_position}, Maze shape: {no_rows}x{no_columns}")
+
+            # Make sure within range (check if within maze boundary)
+            if (node_position[0] > (no_rows - 1) or 
+                node_position[0] < 0 or 
+                node_position[1] > (no_columns -1) or 
+                node_position[1] < 0):
                 continue
 
             # Make sure walkable terrain
-            if maze[node_position[0], node_position[1]] > 0.8:
+            if maze[node_position[0],node_position[1]] > 0.8:
+                # print(f"Obstacle at: {node_position}")
                 continue
 
             # Create new node
@@ -194,25 +348,38 @@ def search(maze, start, end):
             children.append(new_node)
 
         # Loop through children
-
+        
         for child in children:
-
-            # TODO PART 4 Child is on the visited dict (use get method to check if child is in visited dict, if not found then default value is False)
-            if (visited_dict.get(child.position)):
+  
+            # Child is on the visited list (search entire visited list)
+            if visited_dict.get(child.position, False):
                 continue
 
-            # TODO PART 4 Create the f, g, and h values
-            child.g = current_node.g + 1 #parent node g + 1 (each move moves 1)
-            # Heuristic costs calculated here, this is using eucledian distance
-            child.h = heuristic(child.position, end)
+            # Create the f, g, and h values
+            child.g = current_node.g + sqrt(((child.position[0] - current_node.position[0]) ** 2) + 
+                                           ((child.position[1] - current_node.position[1]) ** 2))
+            ## Heuristic costs calculated here, this is using eucledian distance
+            child.h = sqrt(((child.position[0] - end_node.position[0]) ** 2) + 
+                       ((child.position[1] - end_node.position[1]) ** 2)) 
 
             child.f = child.g + child.h
 
             # Child is already in the yet_to_visit list and g cost is already lower
-            child_node_in_yet_to_visit = yet_to_visit_dict.get(
-                child.position, False)
+            child_node_in_yet_to_visit = yet_to_visit_dict.get(child.position, False)
             if (child_node_in_yet_to_visit is not False) and (child.g >= child_node_in_yet_to_visit.g):
                 continue
 
             # Add the child to the yet_to_visit list
             yet_to_visit_dict[child.position] = child
+
+
+# [Part 3] TODO Complete the this function so that it is adapted to search a graph provided as PRM instead of a grid maze
+
+#distance calc for g, h, euclidean heuristic
+def distance(points, start_idx, end_idx):
+    #positions are indexes for PRM, index in array to find actual positions
+    start = points[start_idx]
+    end = points[end_idx]
+    dist = sqrt(abs(end[0] - start[0]) ** 2 + abs(end[1] - start[1]) ** 2)
+    return dist
+

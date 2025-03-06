@@ -33,6 +33,9 @@ from state_machine import RobotStateMachine
 # import struct
 from uart_transmitter import UART_Transmitter
 
+#for timeout for PICK, PLACE commands
+import time
+
 class decision_maker(Node):
     
     
@@ -51,7 +54,7 @@ class decision_maker(Node):
 
         # TODO PART 5 choose your threshold
         # NEW increased threshold to account for arm length (when pick and place occurring)
-        self.reachThreshold=0.001 # NEW, prev 0.2 for lab
+        self.reachThreshold=0.2 # NEW, prev 0.2 for lab
 
         # TODO PART 5 your localization type
         #self.localizer=localization(type=kalmanFilter)
@@ -90,9 +93,14 @@ class decision_maker(Node):
             # (7.0, 7.0, 0.7)
 
             # NEW:
-            (0.7, 0.0, 0.5), 
-            (0.1, 0.3, 0.3), 
-            (0.4, 0.0, 0.7)
+            # (1, 1, 0.5), #1st working, try another:
+            # (2, 0, 0.5), #works,
+            # (3.5, 2, 0.5), #works
+            (4.5, 2, 0.5),
+            #CURR TEST
+            (0, 0, 0.7)
+            # (0.1, 0.3, 0.3), 
+            # (0.4, 0.0, 0.7)
         ]
         
         #to keep track of index for drop off locations
@@ -103,6 +111,13 @@ class decision_maker(Node):
 
         # NEW - initialize UART Transmitter object for sending msgs
         self.uart = UART_Transmitter(port="/dev/ttyTHS1", baudrate=115200)
+
+
+        #initialize timeout approx for pick and place tasks
+        self.pick_start_time = None
+        self.pick_duration = 3.0
+        self.place_start_time = None
+        self.place_duration = 3.0
 
 
 
@@ -127,10 +142,15 @@ class decision_maker(Node):
 
             # NEW
             # (0.2, 0.2, 0.03), 
-            (0.2, 0.2, 0.03), 
-            (0.2, -0.7, 0.03), 
-            (0.5, 0.5, 0.0), 
-            (1.0, -2.5, 0.0) 
+
+            (2, 2, 0.03),
+            # CURR TEST
+            (2.0, 1.0, 0.0)
+
+            # (0.2, 0.2, 0.03), 
+            # (0.2, -0.7, 0.03), 
+            # (0.5, 0.5, 0.0), 
+            # (1.0, -2.5, 0.0) 
         ]
 
 
@@ -323,22 +343,43 @@ class decision_maker(Node):
 
 
         elif self.state_machine.state == "PICK":
-            print("State: PICK")
-            # Send commands to STM32 to pick up the object
-            success = self.pick_up_object()
+            # print("State: PICK\n")
+            # # Send commands to STM32 to pick up the object
+            # success = self.pick_up_object()
 
-            if success:
-                print("Object picked up.")
-                # Remove object from queue to prevent double servicing
-                del self.object_queue[0]
-                # Find tidy destination - hardcoded for now
-                x_dropoff, y_dropoff, z_dropoff = self.drop_off_locations[self.current_drop_off_index]
-                print(f"Assigned drop-off location: ({x_dropoff}, {y_dropoff}, {z_dropoff})")
-                self.goal = (x_dropoff, y_dropoff)
-                #update dropoff index for next object - only for simulation testing (now updated in PLACE)
-                # self.current_drop_off_index += 1
+            # if success:
+            #     print("Object picked up.\n")
+            #     # Remove object from queue to prevent double servicing
+            #     del self.object_queue[0]
+            #     # Find tidy destination - hardcoded for now
+            #     x_dropoff, y_dropoff, z_dropoff = self.drop_off_locations[self.current_drop_off_index]
+            #     print(f"Assigned drop-off location: ({x_dropoff}, {y_dropoff}, {z_dropoff})")
+            #     self.goal = (x_dropoff, y_dropoff)
 
-                self.state_machine.plan_path_to_destination()
+            #     # working but too fast ---
+            #     self.state_machine.plan_path_to_destination()
+
+            #NEW - with configured timer for task
+            if self.pick_start_time is None:  # First entry to PICK state
+                print("BEGINNING PICK OPERATION")
+                self.pick_up_object()
+                self.pick_start_time = self.get_clock().now()  # ROS2 time object
+            else:
+                # Calculate elapsed time in seconds
+                elapsed = (self.get_clock().now() - self.pick_start_time).nanoseconds * 1e-9
+                
+                print(f"Picking... {self.pick_duration - elapsed:.1f}s remaining")
+                
+                if elapsed >= self.pick_duration:
+                    print("PICK OPERATION COMPLETE")
+                    del self.object_queue[0]
+                    x_dropoff, y_dropoff, z_dropoff = self.drop_off_locations[self.current_drop_off_index]
+                    print(f"Assigned drop-off location: ({x_dropoff}, {y_dropoff}, {z_dropoff})")
+                    self.goal = (x_dropoff, y_dropoff)
+
+                    self.pick_start_time = None
+                    self.state_machine.plan_path_to_destination()
+
 
         elif self.state_machine.state == "TO_TIDY_DESTINATION":
             print("State: TO_TIDY_DESTINATION")
@@ -365,20 +406,61 @@ class decision_maker(Node):
                 # self.state_machine.place_object()
 
         elif self.state_machine.state == "PLACE_OBJECT":
-            print("State: PLACE_OBJECT")
+            # print("State: PLACE_OBJECT")
             
-            success = self.place_object()
+            # success = self.place_object()
             
-            if success:
-                print("Object placed successfully.")
+            # if success:
+            #     print("Object placed successfully.")
+            #     #update drop_off_index to next in list:
+            #     self.current_drop_off_index = (self.current_drop_off_index + 1) % len(self.drop_off_locations)
+                
+            #     #if all objects serviced (queue empty)
+            #     if not len(self.object_queue): 
+            #         self.state_machine.review_objects()  # Transition to REVIEW
+            #     else:
+            #         #if array not empty, plan path to the next object in the queue
+            #         self.state_machine.plan_next_object()
+
+            #NEW - with configured timer for task
+            if self.place_start_time is None:  # First entry to PLACE state
+                print("BEGINNING PLACE OPERATION")
+                self.place_object()
                 #update drop_off_index to next in list:
                 self.current_drop_off_index = (self.current_drop_off_index + 1) % len(self.drop_off_locations)
+                self.place_start_time = self.get_clock().now()  # ROS2 time object
+            else:
+                # Calculate elapsed time in seconds
+                elapsed = (self.get_clock().now() - self.place_start_time).nanoseconds * 1e-9
                 
-                if not len(self.object_queue): 
-                    return 
-                else:
-                    #if array not empty, plan path to the next object in the queue
-                    self.state_machine.plan_next_object()
+                print(f"Placing... {self.place_duration - elapsed:.1f}s remaining")
+                
+                if elapsed >= self.place_duration:
+                    print("PLACE OPERATION COMPLETE")
+
+                    self.place_start_time = None
+                    #if all objects serviced (queue empty)
+                    if not len(self.object_queue): 
+                        self.state_machine.review_objects()  # Transition to REVIEW
+                    else:
+                        #if array not empty, plan path to the next object in the queue
+                        self.state_machine.plan_next_object()
+
+
+        elif self.state_machine.state == "REVIEW":
+            print("State: REVIEW")
+
+            print("All objects tidied. Task complete.")
+            
+            # if not self.object_queue:
+            #     print("All objects tidied. Task complete.")
+            #     # Stop the robot
+            #     self.publisher.publish(Twist())
+            #     # Optional: Shutdown the node or exit
+            #     # rclpy.shutdown()
+            # else:
+            #     # If objects are added later, transition back to IDENTIFY
+            #     self.state_machine.detect_objects()
 
 
 

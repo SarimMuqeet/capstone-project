@@ -46,6 +46,27 @@
 #define MIN_TO_US (60*1000000)
 #define NUM_SEQ (STEPS_PER_REVS/HALF_STEPS)
 
+//define pins for first stepper
+#define M1_IN1_PIN GPIO_PIN_3
+#define M1_IN1_PORT GPIOE
+#define M1_IN2_PIN GPIO_PIN_4
+#define M1_IN2_PORT GPIOE
+#define M1_IN3_PIN GPIO_PIN_5
+#define M1_IN3_PORT GPIOE
+#define M1_IN4_PIN GPIO_PIN_6
+#define M1_IN4_PORT GPIOE
+int stepNumber;          // which step the motor is on
+
+//define pins for second stepper
+#define M2_IN1_PIN GPIO_PIN_5
+#define M2_IN1_PORT GPIOA
+#define M2_IN2_PIN GPIO_PIN_6
+#define M2_IN2_PORT GPIOA
+#define M2_IN3_PIN GPIO_PIN_5
+#define M2_IN3_PORT GPIOB
+#define M2_IN4_PIN GPIO_PIN_6
+#define M2_IN4_PORT GPIOB
+
 #define TOTAL_REV_ANGLE 360
 
 /* USER CODE END PD */
@@ -80,6 +101,7 @@ ETH_HandleTypeDef heth;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
@@ -139,6 +161,7 @@ static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM3_Init(void);
 void StartDefaultTask(void *argument);
 void StartParsingTask(void *argument);
 void StartArmTask(void *argument);
@@ -165,78 +188,293 @@ void delay(uint16_t us)
 //min speed 1 rpm, max speed ~13 rpm, want to go from microseconds/step (us) to rev/min
 void set_rpm(int rpm)
 {
-	delay(MIN_TO_US/(STEPS_PER_REVS*rpm));
+//	delay(MIN_TO_US/(STEPS_PER_REVS*rpm));
+
+//	osDelay(MIN_TO_US/(STEPS_PER_REVS*rpm));
+//	osDelay(pdMS_TO_TICKS(500));
+//	osDelay(MIN_TO_US / (STEPS_PER_REVS * rpm) / 1000); // Convert µs to ms
+
+	uint32_t delay_us = (60 * 1000000) / (STEPS_PER_REVS * rpm);
+	delay(delay_us); // Use microsecond-precision delay
 }
 
-//delay function for stepper motor control
-void half_stepper_control(int step)
+////delay function for stepper motor control
+//void half_stepper_control(int step)
+//{
+//	//setup for half-step stepper motor control (change later to micro-drive)
+//	//define each step in terms of motor character - 4096 steps/rev, 8 steps/rev in code
+//	/*
+//	 * PE3 - GPIO_PIN_3 - IN1
+//	 * PE4 - GPIO_PIN_4 - IN2
+//	 * PE5 - GPIO_PIN_5 - IN3
+//	 * PE6 - GPIO_PIN_6 - IN4
+//	 *
+//	 * PA5 - GPIO_PIN_5 - IN1
+//	 * PA6 - GPIO_PIN_6 - IN2
+//	 * PB5 - GPIO_PIN_5 - IN3
+//	 * PB6 - GPIO_PIN_6 - IN4
+//	 */
+//
+//	switch(step){
+//	case 0:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
+//		break;
+//	case 1:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
+//		break;
+//	case 2:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
+//		break;
+//	case 3:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
+//		break;
+//	case 4:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
+//		break;
+//	case 5:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
+//		break;
+//	case 6:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
+//		break;
+//	case 7:
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
+//		break;
+//
+//	}
+//}
+
+//void full_stepper_control(int step) {
+//    // Corrected Full-step pattern for L298N (4 steps)
+//    const uint8_t full_steps[4] = {
+////        0b1001,  // Step 1: IN1 + IN4
+////        0b0011,  // Step 2: IN2 + IN3
+////        0b0110,  // Step 3: IN3 + IN2
+////        0b1010   // Step 4: IN4 + IN1
+//
+//        0b1001,  // Step 1: IN1 + IN4
+//        0b0101,  // Step 2: IN2 + IN4
+//        0b0110,  // Step 3: IN2 + IN3
+//        0b1010   // Step 4: IN1 + IN3
+//
+////    	0b1000,  // Step 1: IN1 + IN4
+////		0b0011,  // Step 2: IN2 + IN3
+////    	0b0110,  // Step 3: IN3 + IN2
+////    	0b1010   // Step 4: IN4 + IN1
+//
+////        0b0001,  // Step 1: IN1 + IN4
+////        0b0010,  // Step 2: IN2 + IN3
+////        0b0100,  // Step 3: IN3 + IN2
+////        0b1000   // Step 4: IN4 + IN1
+////
+//
+//    };
+//	  uint8_t pattern = full_steps[step % 4];
+//
+//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, (pattern & 0x8) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN1
+//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, (pattern & 0x4) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN2
+//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, (pattern & 0x2) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN3
+//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, (pattern & 0x1) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN4
+//}
+
+//from tutorial
+void motorDelay(uint32_t delay)
 {
-	//setup for half-step stepper motor control (change later to micro-drive)
-	//define each step in terms of motor character - 4096 steps/rev, 8 steps/rev in code
-	/*
-	 * PE3 - GPIO_PIN_3 - IN1
-	 * PE4 - GPIO_PIN_4 - IN2
-	 * PE5 - GPIO_PIN_5 - IN3
-	 * PE6 - GPIO_PIN_6 - IN4
-	 *
-	 * PA5 - GPIO_PIN_5 - IN1
-	 * PA6 - GPIO_PIN_6 - IN2
-	 * PB5 - GPIO_PIN_5 - IN3
-	 * PB6 - GPIO_PIN_6 - IN4
-	 */
+//    if (delay < 60000)
+//    {
+//        __HAL_TIM_SET_COUNTER(&htim1, 0);
+//        while (__HAL_TIM_GET_COUNTER(&htim1) < delay);
+//    }
+//    else
+//    {
+////        HAL_Delay(delay/1000);
+//    	osDelay(delay/1000);
+//    }
+    __HAL_TIM_SET_COUNTER(&htim1, 0);
+    while (__HAL_TIM_GET_COUNTER(&htim1) < delay);
+}
 
-	switch(step){
-	case 0:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-		break;
-	case 1:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-		break;
-	case 2:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-		break;
-	case 3:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-		break;
-	case 4:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-		break;
-	case 5:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-		break;
-	case 6:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-		break;
-	case 7:
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-		break;
 
+//void motorOff()
+//{
+//    // Switch off the idle current to the motor
+//    // Otherwise L298N module will heat up
+//    HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET); // IN1
+//    HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET); // IN2
+//    HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET); // IN3
+//    HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET); // IN4
+//}
+
+/*
+//WORKIKNG EXAMPLE ------------------------------
+void stepCCV (int steps, uint16_t delay)
+{
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 2: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 3: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+		}
+		motorDelay(delay); // Delay between steps
+	}
+
+}
+
+// CV - Clockwise motor1
+void stepCV (int steps, uint16_t delay)
+{
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 2: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 3: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+		}
+		motorDelay(delay); // Delay between steps
 	}
 }
+*/
+// ----- end Tutorial
+
+
+void stepCCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
+{
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 2: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 3: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+		}
+		motorDelay(delay); // Delay between steps
+	}
+
+}
+
+void stepCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
+{
+    for (int x = 0; x < steps; x++) {
+        switch (x % 4) {
+            case 0: // Energize IN1
+                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+                break;
+            case 1: // Energize IN2
+                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+                break;
+            case 2: // Energize IN3
+                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+                break;
+            case 3: // Energize IN4
+                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+                break;
+        }
+        motorDelay(delay); // Delay between steps
+    }
+}
+
+void synchronizedStep(int steps, uint16_t delay) {
+    stepCV(steps, delay, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN, M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
+    //second stepper should be exact same steps and delay but opposite direction
+    stepCCV(steps, delay, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN, M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
+}
+
 
 /*
 //controlling motor with angle specified
@@ -356,6 +594,7 @@ int main(void)
   MX_TIM1_Init();
   MX_I2C1_Init();
   MX_USART2_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   //start timer
@@ -364,6 +603,9 @@ int main(void)
   //enable UART interrupt to receive messages
 //  uint8_t uartRxBuffer[30];
   HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
+  //enable encoder mode timer
+  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
 
 
 
@@ -621,7 +863,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 71;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 65535;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -646,6 +888,55 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+  //for stepper encoder ----------------
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -910,98 +1201,19 @@ void StartArmTask(void *argument)
 {
   /* USER CODE BEGIN StartArmTask */
 
-
-	/* First Driver */
-
-//	//wait for I2C to stabilize before starting
-//	osDelay(100);
-//
-//	if(HAL_I2C_IsDeviceReady(&hi2c1, 0x40 << 1, 1, HAL_MAX_DELAY) == HAL_OK) {
-//		char str[64] = {0};
-//		sprintf(str, "I2C Device Found!\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
-//	} else {
-//		char str[64] = {0};
-//		sprintf(str, "I2C Device Found!\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
-//	}
-//
-//	// Create and initialize PCA9685 handle
-//	pca9685_handle_t servo_driver = {
-//		.i2c_handle = &hi2c1,                // Use I2C1 interface that's already initialized
-//		.device_address = 0x40 << 1,         // Default PCA9685 address (0x40) shifted for HAL
-////		.device_address = 0x40, //let driver handle shifting address
-//		.inverted = false                    // Normal output polarity
-//	};
-//
-//	// Initialize the PCA9685
-//	if (!pca9685_init(&servo_driver)) {
-//		HAL_UART_Transmit(&huart3, (uint8_t*)"PCA9685 init failed\n", 19, 10);
-//		Error_Handler();
-//	}
-//
-//	// Set PWM frequency for servos (typically 50Hz for most servos)
-//	if (!pca9685_set_pwm_frequency(&servo_driver, 50)) {
-//		HAL_UART_Transmit(&huart3, (uint8_t*)"PWM freq set failed\n", 19, 10);
-//		Error_Handler();
-//	}
-//
-//	HAL_UART_Transmit(&huart3, (uint8_t*)"Passed error checks, entering inf loop\n", 50, 10);
-//
-//	/* Infinite loop */
-//	for(;;)
-//	{
-//		// Move servo on channel 15 as example
-//		// duty cycle between ~2.5% and ~12.5% for 0° to 180°
-//
-//		char str2[64] = {0};
-//		sprintf(str2, "Passed error checks, setting duty cycle on motor channel 15\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str2, sizeof (str2), 10);
-//
-//		// Move to 0 degrees (~2.5% duty cycle)
-//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.025f, false);
-//		osDelay(1000);
-//
-//		char str3[64] = {0};
-//		sprintf(str3, "Passed error checks, move to 0 degrees\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str3, sizeof (str3), 10);
-//
-//		// Move to 90 degrees (~7.5% duty cycle)
-//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.075f, false);
-//		osDelay(1000);
-//
-//		char str4[64] = {0};
-//		sprintf(str4, "Passed error checks, move to 90 degrees\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str4, sizeof (str4), 10);
-//
-//		// Move to 180 degrees (~12.5% duty cycle)
-//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.125f, false);
-//		osDelay(1000);
-//
-//		char str5[64] = {0};
-//		sprintf(str2, "Passed error checks, move to 180 degrees\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str5, sizeof (str5), 10);
-//	}
-
-
-	/*Other Driver */
 	PCA9685_Init(&hi2c1);
 	uint8_t ActiveServo = 15;
 //	uint8_t SERVO_COUNT = 5;
 
-	for(;;) {
-		//Working Demo Code
-//		for (uint8_t Angle = 0; Angle < 180; Angle++) {
-//				  PCA9685_SetServoAngle(ActiveServo, Angle);
-//		}
-//		HAL_Delay(500);
-//		for (uint16_t Angle = 180; Angle > 0; Angle--) {
-//		  PCA9685_SetServoAngle(ActiveServo, Angle);
-//		}
-//		HAL_Delay(500);
-//		ActiveServo++;
-//		if (ActiveServo >= SERVO_COUNT) ActiveServo = 0;
+	// for stepper control
+	float targetAngle = 360.0f; //arbitrary for now
+	float currStepperAngle = 0.0f;
+	int stepperRPM = 15;
 
+	//from tutorial
+	stepNumber = 1;
+
+	for(;;) {
 		char str[64] = {0};
 		sprintf(str, "\nWaiting for Semaphore (UART interrupt)\n");
 //		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
@@ -1009,7 +1221,92 @@ void StartArmTask(void *argument)
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str, sizeof (str));
 
 		//Acquire Semaphore (Wait for UART Signal)
-		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+		osSemaphoreAcquire(armTaskSemaphore, osWaitForever); // COMMENT WHEN TESTING MOTORS BY THEMSELVES, UNCOMMENT WHEN WITH NANO
+
+
+		//--- New Stepper Control Section ---//
+		// Calculate required movement
+		//works but only hear it vibrate, not really move
+//		float deltaAngle = targetAngle - currStepperAngle;
+//		if(fabs(deltaAngle) > 0.5f) { // Deadband to prevent jitter
+//		  int direction = (deltaAngle > 0) ? 0 : 1; // 0=CW, 1=CCW
+//
+//		  // Move stepper (non-blocking implementation)
+//		  for(int seq = 0; seq < (int)(fabs(deltaAngle)/0.703125f); seq++) { // 0.703125° per sequence
+//			for(int step = 0; step < 8; step++) {
+//			  int actualStep = direction ? 7 - step : step;
+//			  half_stepper_control(actualStep);
+//			  set_rpm(stepperRPM); // Uses timer-based delay
+//			  osDelay(1); // Yield to RTOS scheduler
+//			}
+//		  }
+//		  currStepperAngle = targetAngle; // Update position
+//		}
+
+//		for(int step=0; step<4; step++) { // Full-step = 4 steps/cycle
+//		    full_stepper_control(step);
+//		    set_rpm(10); // 10 RPM
+//		    // Replace osDelay with minimal busy-wait
+//		    uint32_t start = osKernelGetTickCount();
+//		    while(osKernelGetTickCount() - start < 2); // ~2ms wait
+//		}
+
+//		//run 100 full steps
+//		for(int step=0; step<100; step++) { // Full-step = 4 steps/cycle
+//		    full_stepper_control(step % 4);
+//		    set_rpm(150); // 10 RPM
+//		}
+//
+//		osDelay(1000);
+
+
+		//WORKING EXAMPLE -------------------------------
+//		for (int y = 0; y < 8; y++) { // Repeat 8 times
+//			stepCCV(25, 800); // 25 steps CCV with 800 µs delay per step
+//			osDelay(500);     // Delay between rotations
+//		}
+//
+//		// Perform clockwise rotation (CV)
+//		stepCV(800, 5000); // 800 steps CV with 5000 µs delay per step
+//		osDelay(1000);     // Delay after full rotation
+
+		synchronizedStep(800, 5000);
+		osDelay(1000);
+
+		//encoder funcs -----------
+//		//read encoder count (position) only relying on A+, B+
+//		int16_t encoder_position = __HAL_TIM_GET_COUNTER(&htim3);
+//		//to reset counter
+//		__HAL_TIM_SET_COUNTER(&htim3, 0);
+//		//get current direction:
+//		uwDirection = __HAL_TIM_IS_TIM_COUNTING_DOWN(&htim3);
+
+
+		//TO TEST - encoder control with steppers:
+        // Read encoder position
+        encoder_position = __HAL_TIM_GET_COUNTER(&htim3);
+        error = target_position - encoder_position;
+
+        // Move stepper motors until target position is reached
+        while (abs(error) > ERROR_THRESHOLD) {
+            if (error > 0) {
+                // Move forward (clockwise)
+                synchronizedStep(1, 5000); // Move 1 step forward
+            } else {
+                // Move backward (counter-clockwise)
+                synchronizedStep(-1, 5000); // Move 1 step backward
+            }
+
+            // Update encoder position and error
+            encoder_position = __HAL_TIM_GET_COUNTER(&htim3);
+            error = target_position - encoder_position;
+        }
+
+        // Reset encoder counter (optional)
+        __HAL_TIM_SET_COUNTER(&htim3, 0);
+
+
+
 
 //		char str[64] = {0};
 //		sprintf(str, "Semaphore Acquired\n");

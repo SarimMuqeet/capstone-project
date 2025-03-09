@@ -159,14 +159,14 @@ osThreadId_t step1TaskHandle;
 const osThreadAttr_t step1Task_attributes = {
   .name = "step1Task",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityRealtime,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for step2Task */
 osThreadId_t step2TaskHandle;
 const osThreadAttr_t step2Task_attributes = {
   .name = "step2Task",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityRealtime,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
 
@@ -1617,11 +1617,11 @@ void StartArmTask(void *argument)
 		//working
 	    // Release both stepper semaphores simultaneously to complete stepper tasks
 	    osSemaphoreRelease(stepperTask1Semaphore);
-//	    osSemaphoreRelease(stepperTask2Semaphore);
+	    osSemaphoreRelease(stepperTask2Semaphore);
 
 		//wait until stepper tasks completed
 	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
-//	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
 
 
 		//encoder funcs -----------
@@ -1671,19 +1671,42 @@ void StartArmTask(void *argument)
 //		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
 
 
+//	    // Alternate between setting the servo to 0° and 180°
+//	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
+//	    PCA9685_SetServoAngle(14, 0);  // Set to 0°
+//	    PCA9685_SetServoAngle_DS3225(13, 0);  // Set to 0°
+//	    PCA9685_SetServoAngle_DS3225(0, 0);  // Set to 0°
+//		char str2[64] = {0};
+//		sprintf(str2, "Servo Set to 0\n");
+//		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
+//
+//////	    HAL_Delay(500);  // Wait for 500 ms
+//	    osDelay(pdMS_TO_TICKS(2000));
+//	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
+//	    PCA9685_SetServoAngle(14, 180);  // Set to 0°
+//	    PCA9685_SetServoAngle_DS3225(13, 180);  // Set to 0°
+//	    PCA9685_SetServoAngle_DS3225(0, 180);  // Set to 0°
+////	    HAL_Delay(500);  // Wait for 500 ms
+//	    osDelay(pdMS_TO_TICKS(2000));
+//
+//	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
+////	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
 	    // Alternate between setting the servo to 0° and 180°
 	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
 	    PCA9685_SetServoAngle(14, 0);  // Set to 0°
-	    PCA9685_SetServoAngle(13, 0);  // Set to 0°
+	    PCA9685_SetServoAngle_DS3225(13, 0);  // Set to 0°
+	    PCA9685_SetServoAngle(0, 0);  // Set to 0°
 		char str2[64] = {0};
 		sprintf(str2, "Servo Set to 0\n");
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
 
-//	    HAL_Delay(500);  // Wait for 500 ms
+////	    HAL_Delay(500);  // Wait for 500 ms
 	    osDelay(pdMS_TO_TICKS(2000));
 	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
 	    PCA9685_SetServoAngle(14, 180);  // Set to 0°
-	    PCA9685_SetServoAngle(13, 180);  // Set to 0°
+	    PCA9685_SetServoAngle_DS3225(13, 180);  // Set to 0°
+	    PCA9685_SetServoAngle(0, 80);  // Set to 0°
 //	    HAL_Delay(500);  // Wait for 500 ms
 	    osDelay(pdMS_TO_TICKS(2000));
 
@@ -1757,7 +1780,7 @@ void startStep2Task(void *argument)
   {
 	osSemaphoreAcquire(stepperTask2Semaphore, osWaitForever);
 	// Run motor 2 movement
-	step2CCV(8000, 200000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
+	step2CCV(790, 200000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
 			M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
 	osSemaphoreRelease(armTaskSemaphore); // Notify completion
 //    osDelay(1);

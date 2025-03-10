@@ -22,9 +22,9 @@
 ../Core/Src/main.c:1205:13:MX_GPIO_Init	56	static
 ../Core/Src/main.c:1304:6:StartDefaultTask	16	static
 ../Core/Src/main.c:1322:6:StartParsingTask	16	static
-../Core/Src/main.c:1340:6:StartArmTask	232	static
-../Core/Src/main.c:1638:6:StartGripperTask	16	static
-../Core/Src/main.c:1656:6:StartStep1Task	40	static
-../Core/Src/main.c:1679:6:startStep2Task	40	static
-../Core/Src/main.c:1703:6:HAL_TIM_PeriodElapsedCallback	16	static
-../Core/Src/main.c:1720:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:1340:6:StartArmTask	296	static
+../Core/Src/main.c:1663:6:StartGripperTask	16	static
+../Core/Src/main.c:1681:6:StartStep1Task	40	static
+../Core/Src/main.c:1704:6:startStep2Task	40	static
+../Core/Src/main.c:1728:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/main.c:1745:6:Error_Handler	4	static,ignoring_inline_asm

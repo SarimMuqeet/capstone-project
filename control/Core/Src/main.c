@@ -1616,6 +1616,31 @@ void StartArmTask(void *argument)
 			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
 			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
 
+			//test servo control
+			PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
+			PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
+			PCA9685_SetServoAngle(13, 0);  // Set to 0°
+			PCA9685_SetServoAngle(12, 0);  // Set to 0°
+//			PCA9685_SetServoAngle(0, 0);  // Set to 0°
+
+			char str2[64] = {0};
+			snprintf(str2, sizeof(str2), "Servo Set to 0\n");
+			HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
+
+	////	    HAL_Delay(500);  // Wait for 500 ms
+		    osDelay(pdMS_TO_TICKS(2000));
+			PCA9685_SetServoAngle_DS3225(15, 180);  // Set to 0°
+			PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
+			PCA9685_SetServoAngle(13, 180);  // Set to 0°
+			PCA9685_SetServoAngle(12, 80);  // Set to 0°
+
+//		    PCA9685_SetServoAngle(0, 80);  // Set to 0°
+	//	    HAL_Delay(500);  // Wait for 500 ms
+		    osDelay(pdMS_TO_TICKS(2000));
+
+		    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
+	//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
 		} else {
 			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
 		}

@@ -1,0 +1,170 @@
+* {
+    padding: 0px;
+    margin: 0px;
+    font-family: 'Inter', sans-serif;
+}
+
+#map {
+    border: 1px solid #000;
+    cursor: crosshair;
+    height: initial;
+    width: 400px;
+    border-radius: 8px;
+
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="10" fill="%23ff0000"/></svg>') 5 5, default;
+}
+
+#logo {
+    width: 300px;
+}
+
+#info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+#result, #mapLabel{
+    font-size: 30px;
+    height: 50px;
+}
+
+#mapLabel {
+    font-weight: 600;
+}
+
+#statusSection {
+    margin-top: 10px;
+    font-size: 18px;
+    height: 100px;
+}
+
+#historyLog {
+    margin-top: 20px;
+    position: relative; /* Add this */
+}
+
+#historyList {
+    list-style-type: none;
+    padding: 0;
+    max-height: 425px;
+    overflow-y: auto;
+    width: 200px;
+    padding-right: 8px; /* Add space for scrollbar */
+    padding-right: 20px; /* Increased scrollbar spacing */
+    scrollbar-gutter: stable;
+}
+
+#historyLog::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 8px; /* Account for scrollbar width */
+    height: 40px;
+    background: linear-gradient(to bottom, 
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.8) 50%,
+        rgba(255, 255, 255, 1) 100%
+    );
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s;
+    z-index: 1;
+}
+
+#historyLog.overflowing::after {
+    opacity: 1;
+}
+
+#historyLog:not(.scrollable)::after {
+    opacity: 0; /* Hide fade only when no scroll needed */
+}
+
+#historyList li {
+    margin-bottom: 12px; /* Increased spacing between blocks */
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: calc(100% - 24px); /* Account for scrollbar space */
+    box-sizing: border-box;
+}
+
+#historyLabel, #statusLabel {
+    margin-bottom: 24px;
+    font-weight: 600;
+}
+
+#historyList li.success {
+    background-color: #e3f2fd; /* Light blue */
+    border: 1px solid #90caf9;
+}
+
+#historyList li.error {
+    background-color: #ffebee; /* Light red */
+    border: 1px solid #ef9a9a;
+}
+
+#status {
+    padding: 8px 12px;
+    border-radius: 6px;
+    min-width: 250px;
+    transition: background-color 0.3s ease;
+}
+
+#map-container {
+    position: relative;
+    display: inline-block;
+}
+
+#robot {
+    position: absolute;
+    width: auto;
+    height: 80px;
+    transition: all 3s ease-in-out;
+    pointer-events: none;
+    transform: translate(-50%, -50%); /* Center robot on click */
+}
+
+#status.status-success {
+    background-color: #bbdefb;  /* Darker blue */
+    border: 1px solid #64b5f6;
+}
+
+#status.status-error {
+    background-color: #ffcdd2;  /* Darker red */
+    border: 1px solid #e57373;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    height: 100vh;
+    width: 100vw;
+
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="10" fill="%23ccc"/></svg>') 5 5, default;
+}
+
+.content {
+    display: flex;
+    gap: 48px;
+}
+
+.controls, .log {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+}
+
+.log {
+    align-items: flex-start;
+    width: 300px;
+}
+
+#error {
+    margin-top: 10px;
+}

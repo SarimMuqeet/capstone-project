@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Map Coordinate Converter</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <div class="controls">
+        <img id="logo" src="{{ url_for('static', filename='homeyLogo.png') }}" alt="Homey Logo">
+        <div class="content">
+            <div id="map-container">
+                <img id="map" src="/map.png" alt="Map">
+                <img id="robot" src="{{ url_for('static', filename='homey.png') }}" style="display: none;">
+            </div>
+            <div class="log">
+                <div id="statusSection">
+                    <div id="statusLabel">
+                        Status:
+                    </div>
+                    <div id="status"></div>
+                </div>
+                <div id="historyLog">
+                    <div id="historyLabel">
+                        History Log:
+                    </div>
+                    <ul id="historyList"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const robot = document.getElementById('robot');
+        const img = document.getElementById('map');
+        const statusDiv = document.getElementById('status');
+        const historyList = document.getElementById('historyList');
+        const resolution = 0.05;
+        const scaleX = img.naturalWidth / img.width;
+        const scaleY = img.naturalHeight / img.height;
+        
+        let history = [];
+
+        img.addEventListener('load', () => {
+            const scaleX = img.naturalWidth / img.width;
+            const scaleY = img.naturalHeight / img.height;
+            const realX = img.naturalWidth - 1; // Bottom right X in natural dimensions
+            const realY = img.naturalHeight - 1; // Bottom right Y in natural dimensions
+            moveRobot(realX, realY, scaleX, scaleY);
+        });
+
+        function moveRobot(realX, realY, scaleX, scaleY) {
+
+            console.log(realX, realY);
+
+            // Update robot position with animation
+            robot.style.display = 'block';
+            robot.style.left = `${realX / scaleX}px`;
+            robot.style.top = `${realY / scaleY}px`;
+        }
+
+        img.addEventListener('click', async (e) => {
+            const rect = img.getBoundingClientRect();
+            
+            const scaleX = img.naturalWidth / img.width;
+            const scaleY = img.naturalHeight / img.height;
+
+            // Get clicked pixel coordinates
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x, y })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (errorData.error) {
+                        history.push(`Error: ${errorData.error}`);
+                        statusDiv.textContent = `Error: ${errorData.error}`;
+                        statusDiv.classList.add('status-error');
+                        statusDiv.classList.remove('status-success');
+                        updateHistory();
+                    } else {
+                        history.push('An unknown error occurred.');
+                        statusDiv.textContent = `Error: ${errorData.error}`;
+                        statusDiv.classList.add('status-error');
+                        statusDiv.classList.remove('status-success');
+                        updateHistory();
+                        setTimeout(() => {
+                            errorDiv.textContent = '';
+                        }, 2000);
+                    }
+                } else {
+                    const coords = await response.json();
+                    history.push(`Going to (${coords.x} m, ${coords.y} m)`);
+                    updateHistory();
+                    moveRobot(x, y, scaleX, scaleY)
+                    statusDiv.textContent = `Going to (${coords.x} m, ${coords.y} m)`;
+                    statusDiv.classList.add('status-success');
+                    statusDiv.classList.remove('status-error');
+                }
+            } catch (error) {
+                history.push('Network error occurred.');
+                updateHistory();
+                setTimeout(() => {
+                }, 2000);
+                statusDiv.textContent = 'Error';
+            }
+        });
+
+        function updateHistory() {
+            historyList.innerHTML = '';
+            history.forEach(item => {
+                const listItem = document.createElement('li');
+                listItem.textContent = item;
+                
+                // Add appropriate class based on content
+                if (item.startsWith('Error:')) {
+                    listItem.classList.add('error');
+                } else {
+                    listItem.classList.add('success');
+                }
+                
+                historyList.insertBefore(listItem, historyList.firstChild);
+            });
+            checkOverflow();
+        }
+
+        historyList.addEventListener('scroll', () => {
+            const atBottom = historyList.scrollTop + historyList.clientHeight >= historyList.scrollHeight - 1;
+            historyLog.classList.toggle('overflowing', !atBottom);
+        });
+
+        // Update checkOverflow function
+        function checkOverflow() {
+            const hasOverflow = historyList.scrollHeight > historyList.clientHeight;
+            historyLog.classList.toggle('scrollable', hasOverflow);
+        }
+
+    </script>
+</body>
+</html>

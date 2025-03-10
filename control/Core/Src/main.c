@@ -25,9 +25,13 @@
 /* USER CODE BEGIN Includes */
 //servo board driver
 #include "pca9685.h"
+//for IK
+#include <math.h>
+#include <stdbool.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 //#include <iostream>
 //#include <cstring>
 //#include <cmath>
@@ -41,21 +45,18 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+// Define constants for the links inverse kinematics
+#define L12 15.0  // Length of link 1
+#define L23 15.0   // Length of link 2
+#define L34 8.5   // Length of link 3
+
 #define STEPS_PER_REVS 4096 //motor and step type defined
 #define HALF_STEPS 8
 #define MIN_TO_US (60*1000000)
 #define NUM_SEQ (STEPS_PER_REVS/HALF_STEPS)
 
 //define pins for first stepper
-//#define IN1_PIN GPIO_PIN_3
-//#define IN1_PORT GPIOE
-//#define IN2_PIN GPIO_PIN_4
-//#define IN2_PORT GPIOE
-//#define IN3_PIN GPIO_PIN_5
-//#define IN3_PORT GPIOE
-//#define IN4_PIN GPIO_PIN_6
-//#define IN4_PORT GPIOE
-
 // ---- for synchronized step
 #define M1_IN1_PIN GPIO_PIN_3
 #define M1_IN1_PORT GPIOE
@@ -76,15 +77,6 @@ int stepNumber;          // which step the motor is on
 #define M2_IN3_PORT GPIOB
 #define M2_IN4_PIN GPIO_PIN_6
 #define M2_IN4_PORT GPIOB
-
-//#define IN1_PIN GPIO_PIN_5
-//#define IN1_PORT GPIOA
-//#define IN2_PIN GPIO_PIN_6
-//#define IN2_PORT GPIOA
-//#define IN3_PIN GPIO_PIN_5
-//#define IN3_PORT GPIOB
-//#define IN4_PIN GPIO_PIN_6
-//#define IN4_PORT GPIOB
 
 #define TOTAL_REV_ANGLE 360
 
@@ -144,7 +136,7 @@ const osThreadAttr_t parsingTask_attributes = {
 osThreadId_t armTaskHandle;
 const osThreadAttr_t armTask_attributes = {
   .name = "armTask",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityHigh2,
 };
 /* Definitions for gripperTask */
@@ -177,7 +169,7 @@ osSemaphoreId_t stepperTask1Semaphore;
 osSemaphoreId_t stepperTask2Semaphore;
 
 //buffer to store UART messages
-uint8_t uartRxBuffer[30];
+uint8_t uartRxBuffer[17];
 
 
 /* USER CODE END PV */
@@ -207,6 +199,52 @@ void startStep2Task(void *argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+// Function to calculate inverse kinematics
+bool ikinematics(float positionx, float positiony, float gamma, float *J1, float *J2, float *J3) {
+    float xe = positionx;
+    float ye = positiony;
+    float g = gamma;
+
+    // Calculate the position P3
+    float x3 = xe - (L34 * cosf(g * M_PI / 180.0));  // Convert gamma to radians
+    float y3 = ye - (L34 * sinf(g * M_PI / 180.0));
+    float C = sqrtf(x3 * x3 + y3 * y3);
+
+    if ((L12 + L23) > C) {
+        // Calculate angles a and B
+        float a = acosf((L12 * L12 + L23 * L23 - C * C) / (2 * L12 * L23));
+        float B = acosf((L12 * L12 + C * C - L23 * L23) / (2 * L12 * C));
+
+        // Joint angles for elbow-down configuration
+        float J1a = ((atan2f(y3, x3) - B)* 180.0 / M_PI);
+        float J2a = 180.0 - (a * 180.0 / M_PI);
+        float J3a = g - J1a - J2a;
+
+        // Joint angles for elbow-up configuration
+        float J1b = ((atan2f(y3, x3) + B)* 180.0 / M_PI);
+        float J2b = -(180.0 - (a * 180.0 / M_PI));
+        float J3b = g - J1b - J2b;
+
+        // Output the results (for example, printing to the serial monitor)
+//        printf("The joint 1, 2, and 3 angles are (%f, %f, %f) respectively for elbow-down configuration.\n", J1a, J2a, J3a);
+//        printf("The joint 1, 2, and 3 angles are (%f, %f, %f) respectively for elbow-up configuration.\n", J1b, J2b, J3b);
+
+        //return A-Configuration for now
+        *J1 = J1a;
+        *J2 = J2a;
+        *J3 = J3a;
+
+        //return success
+        return true;
+
+    } else {
+//        printf("     Dimension error!\n");
+//        printf("     End-effector is outside the workspace.\n");
+    	return false;
+    }
+}
+
+
 //delay function for stepper motor control
 void delay(uint16_t us)
 {
@@ -230,110 +268,6 @@ void set_rpm(int rpm)
 	delay(delay_us); // Use microsecond-precision delay
 }
 
-////delay function for stepper motor control
-//void half_stepper_control(int step)
-//{
-//	//setup for half-step stepper motor control (change later to micro-drive)
-//	//define each step in terms of motor character - 4096 steps/rev, 8 steps/rev in code
-//	/*
-//	 * PE3 - GPIO_PIN_3 - IN1
-//	 * PE4 - GPIO_PIN_4 - IN2
-//	 * PE5 - GPIO_PIN_5 - IN3
-//	 * PE6 - GPIO_PIN_6 - IN4
-//	 *
-//	 * PA5 - GPIO_PIN_5 - IN1
-//	 * PA6 - GPIO_PIN_6 - IN2
-//	 * PB5 - GPIO_PIN_5 - IN3
-//	 * PB6 - GPIO_PIN_6 - IN4
-//	 */
-//
-//	switch(step){
-//	case 0:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-//		break;
-//	case 1:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-//		break;
-//	case 2:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-//		break;
-//	case 3:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-//		break;
-//	case 4:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
-//		break;
-//	case 5:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-//		break;
-//	case 6:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-//		break;
-//	case 7:
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
-//		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_SET);
-//		break;
-//
-//	}
-//}
-
-//void full_stepper_control(int step) {
-//    // Corrected Full-step pattern for L298N (4 steps)
-//    const uint8_t full_steps[4] = {
-////        0b1001,  // Step 1: IN1 + IN4
-////        0b0011,  // Step 2: IN2 + IN3
-////        0b0110,  // Step 3: IN3 + IN2
-////        0b1010   // Step 4: IN4 + IN1
-//
-//        0b1001,  // Step 1: IN1 + IN4
-//        0b0101,  // Step 2: IN2 + IN4
-//        0b0110,  // Step 3: IN2 + IN3
-//        0b1010   // Step 4: IN1 + IN3
-//
-////    	0b1000,  // Step 1: IN1 + IN4
-////		0b0011,  // Step 2: IN2 + IN3
-////    	0b0110,  // Step 3: IN3 + IN2
-////    	0b1010   // Step 4: IN4 + IN1
-//
-////        0b0001,  // Step 1: IN1 + IN4
-////        0b0010,  // Step 2: IN2 + IN3
-////        0b0100,  // Step 3: IN3 + IN2
-////        0b1000   // Step 4: IN4 + IN1
-////
-//
-//    };
-//	  uint8_t pattern = full_steps[step % 4];
-//
-//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, (pattern & 0x8) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN1
-//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, (pattern & 0x4) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN2
-//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, (pattern & 0x2) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN3
-//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, (pattern & 0x1) ? GPIO_PIN_SET : GPIO_PIN_RESET); // IN4
-//}
-
-//from tutorial
 void motorDelay(uint32_t delay)
 {
 //    __HAL_TIM_SET_COUNTER(&htim1, 0);
@@ -359,146 +293,6 @@ void motor2Delay(uint32_t delay)
 //    HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET); // IN3
 //    HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET); // IN4
 //}
-
-
-
-
-/*
-//WORKIKNG EXAMPLE ------------------------------
-void stepCCV (int steps, uint16_t delay)
-{
-//	//old motor seq - working
-//	for (int x = 0; x < steps; x++) {
-//		switch (x % 4) {
-//			case 0: // Energize IN3
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//			case 1: // Energize IN2
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//			case 2: // Energize IN4
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
-//				break;
-//			case 3: // Energize IN1
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//		}
-//		motorDelay(delay); // Delay between steps
-//	}
-
-	for (int x = 0; x < steps; x++) {
-		switch (x % 4) {
-			case 0: // Energize IN3
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-				break;
-			case 1: // Energize IN2
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-				break;
-			case 2: // Energize IN4
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
-				break;
-			case 3: // Energize IN1
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-				break;
-		}
-		motorDelay(delay); // Delay between steps
-	}
-
-	//motor 1 - E pins
-//	for (int x = 0; x < steps; x++) {
-//		switch (x % 4) {
-//			case 0: // Energize IN4
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//			case 1: // Energize IN3
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
-//				break;
-//			case 2: // Energize IN2
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
-//				break;
-//			case 3: // Energize IN1
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//		}
-//		motorDelay(delay); // Delay between steps
-//	}
-
-
-}
-
-// CV - Clockwise motor1
-void stepCV (int steps, uint16_t delay)
-{
-	for (int x = 0; x < steps; x++) {
-		switch (x % 4) {
-			case 0: // Energize IN1
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-				break;
-			case 1: // Energize IN2
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
-				break;
-			case 2: // Energize IN3
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-				break;
-			case 3: // Energize IN4
-				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-				break;
-		}
-		motorDelay(delay); // Delay between steps
-	}
-}
-*/
-// ----- end Tutorial
-
-
 
 void stepCCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
 {
@@ -788,22 +582,6 @@ void step2CV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PI
 	}
 }
 
-void synchronizedStep(int direction, int steps, uint16_t delay) {
-	if (direction == 0){
-	    stepCV(steps, delay, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN, M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
-	    //second stepper should be exact same steps and delay but opposite direction
-	    step2CCV(steps, delay, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN, M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
-	    osDelay(1);
-	} else {
-		stepCCV(steps, delay, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN, M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
-		//second stepper should be exact same steps and delay but opposite direction
-		step2CV(steps, delay, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN, M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
-		osDelay(1);
-	}
-
-}
-
-
 
 /*
 //controlling motor with angle specified
@@ -863,15 +641,9 @@ void Stepper_rotate (int angle, int rpm)
 
 /* UART Interrupt Callback */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//    if (huart->Instance == USART2) {
-//    	HAL_UART_Transmit(&huart3, (uint8_t*)"Interrupt Triggered\n", 20, HAL_MAX_DELAY);
-//    	// Signal armTask to start
-////        osThreadFlagsSet(armTaskHandle, 0x01);
-//    	osSemaphoreRelease(armTaskSemaphore);
-//        HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer)); // Restart reception
-//    }
     if (huart->Instance == USART2) {
         if(huart->ErrorCode == HAL_UART_ERROR_NONE) {
+        	//release arm task
             osSemaphoreRelease(armTaskSemaphore);
         }
         //potentially resetting UART reception after buffer has been cleared
@@ -1003,21 +775,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  /* stepper motor control */
-//	  //step through each step
-//	  //4096/8 = 512 seq per revolutions, motor neds 8 steps for each sequence
-//	  for(int i = 0; i < NUM_SEQ; i++){
-//		  for(int j = 0; j < HALF_STEPS; j++) {
-//			  half_stepper_control(j);
-//			  //initial stepper motor control (half-step)
-//			  set_rpm(5);
-//		  }
-//	  }
-
-	  /*servo motor control */
-	  //see threads
-
-
+	  //freeRTOS tasks used instead
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1585,36 +1343,29 @@ void StartArmTask(void *argument)
 
 	int status = PCA9685_Init(&hi2c1);
 	uint8_t ActiveServo = 15;
-//	uint8_t SERVO_COUNT = 5;
 
 	// for stepper control
 	float targetAngle = 360.0f; //arbitrary for now
 	float currStepperAngle = 0.0f;
 	int stepperRPM = 15;
 
+	//angles to track inverse kinematics func return
+	float j1_angle, j2_angle, j3_angle;
+
+
 	for(;;) {
 		char str[64] = {0};
-		sprintf(str, "\nWaiting for Semaphore (UART interrupt)\n");
+		snprintf(str, sizeof(str), "\nWaiting for Semaphore (UART interrupt)\n");
 		//use non blocking UART Transmit instead of regular (which blocks)
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str, sizeof (str));
 
 		//Acquire Semaphore (Wait for UART Signal)
-//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever); // COMMENT WHEN TESTING MOTORS BY THEMSELVES, UNCOMMENT WHEN WITH NANO
+		osSemaphoreAcquire(armTaskSemaphore, osWaitForever); // COMMENT WHEN TESTING MOTORS BY THEMSELVES, UNCOMMENT WHEN WITH NANO
 
-
+		/*
+		 *
+		 *
 		//--- New Stepper Control Section ---//
-
-		//WORKING EXAMPLE -------------------------------
-//		// Perform clockwise rotation (CV)
-//		stepCV(800, 5000); // 800 steps CV with 5000 µs delay per step
-//		osDelay(1000);     // Delay after full rotation
-
-		//		//TO TEST NEXT - works
-		//		synchronizedStep(0, 800, 100000);
-		//		osDelay(1000);
-
-
-		//working
 	    // Release both stepper semaphores simultaneously to complete stepper tasks
 	    osSemaphoreRelease(stepperTask1Semaphore);
 	    osSemaphoreRelease(stepperTask2Semaphore);
@@ -1692,10 +1443,28 @@ void StartArmTask(void *argument)
 //	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
 ////	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
 
+
+
+//		//inverse kinematics method -----------------------------------------------------------
+//		//target_gamma to be hardcoded, target_x, target_y to be read in from uartBuffer
+//		float target_gamma = 90.0;
+//		bool status = ikinematics(target_x, target_y, target_gamma, &j1_angle, &j2_angle, &j3_angle);
+//		if(status == true){
+//			//set servo to desired position
+//			PCA9685_SetServoAngle_DS3225(15, j1_angle);  // Set to 0°
+//			PCA9685_SetServoAngle_DS3225(14, j2_angle);  // Set to 0°
+//			PCA9685_SetServoAngle(13, j3_angle);  // Set to 0°
+////			PCA9685_SetServoAngle(0, 0);  // Set to 0°
+//		}
+
+
+
 	    // Alternate between setting the servo to 0° and 180°
-	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
-	    PCA9685_SetServoAngle(14, 0);  // Set to 0°
-	    PCA9685_SetServoAngle_DS3225(13, 0);  // Set to 0°
+		PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
+		PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
+		PCA9685_SetServoAngle(13, 0);  // Set to 0°
+		PCA9685_SetServoAngle(0, 0);  // Set to 0°
+
 	    PCA9685_SetServoAngle(0, 0);  // Set to 0°
 		char str2[64] = {0};
 		sprintf(str2, "Servo Set to 0\n");
@@ -1703,9 +1472,10 @@ void StartArmTask(void *argument)
 
 ////	    HAL_Delay(500);  // Wait for 500 ms
 	    osDelay(pdMS_TO_TICKS(2000));
-	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
-	    PCA9685_SetServoAngle(14, 180);  // Set to 0°
-	    PCA9685_SetServoAngle_DS3225(13, 180);  // Set to 0°
+		PCA9685_SetServoAngle_DS3225(15, 180);  // Set to 0°
+		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
+		PCA9685_SetServoAngle(13, 180);  // Set to 0°
+
 	    PCA9685_SetServoAngle(0, 80);  // Set to 0°
 //	    HAL_Delay(500);  // Wait for 500 ms
 	    osDelay(pdMS_TO_TICKS(2000));
@@ -1713,14 +1483,148 @@ void StartArmTask(void *argument)
 	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
 //	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
 
+
+
+		 */
+
+
+
+//	    //uart integration ------------------------------ TO TEST
+//	    // Check start and end delimiters
+//		if (uartRxBuffer[0] == '!' && uartRxBuffer[14] == '#' && uartRxBuffer[15] == '#')
+//		{
+//			uint8_t command_type = uartRxBuffer[1];
+//
+//			/* Message Format: StartDelimiter(!) | Command(1B) | X(4B) | Y(4B) | Z(4B) | EndDelimiter(#)
+//			* message = struct.pack('!cB3f3s',
+//			* b'!', # Start delimiter
+//			* command_type, # 1 byte
+//			* x, y, z, # 3 floats (4 bytes each)
+//			* b'##') # End delimiter (2 bytes)
+//			*/
+//
+//
+//			// Extract x, y, z from uart msg(convert from big-endian to little-endian)
+//			uint32_t x_uint, y_uint, z_uint;
+//			float x, y, z;
+//
+//			memcpy(&x_uint, &uartRxBuffer[2], 4);
+//			x_uint = __REV(x_uint); // Reverse bytes for little-endian
+//			memcpy(&x, &x_uint, sizeof(float));
+//
+//			memcpy(&y_uint, &uartRxBuffer[6], 4);
+//			y_uint = __REV(y_uint);
+//			memcpy(&y, &y_uint, sizeof(float));
+//
+//			memcpy(&z_uint, &uartRxBuffer[10], 4);
+//			z_uint = __REV(z_uint);
+//			memcpy(&z, &z_uint, sizeof(float));
+//
+//			// Debug message
+//			char debugMsg[64];
+//			sprintf(debugMsg, "CMD: %d, X: %.2f, Y: %.2f, Z: %.2f\n", command_type, x, y, z);
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)debugMsg, strlen(debugMsg));
+//
+//
+//		    // Release both stepper semaphores simultaneously to complete stepper tasks
+//		    osSemaphoreRelease(stepperTask1Semaphore);
+//		    osSemaphoreRelease(stepperTask2Semaphore);
+//
+//			//wait until stepper tasks completed to continue (platform reaches expected height)
+//		    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//		    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+//
+//			// Process the command (PICK or PLACE)
+//			// Use inverse kinematics to calculate joint angles
+//			float j1, j2, j3;
+//			bool ik_success = ikinematics(x, y, 90.0f, &j1, &j2, &j3); // Assuming gamma is 90 degrees
+//
+//			if (ik_success) {
+//				// Set servo angles based on IK results
+//				PCA9685_SetServoAngle_DS3225(15, j1);
+//				PCA9685_SetServoAngle_DS3225(14, j2);
+//				PCA9685_SetServoAngle(13, j3);
+//
+////				//potential small delay before gripper
+////				osDelay(pdMS_TO_TICKS(800));
+//
+//				// control gripper based on command type
+//				if (command_type == 0) { // PICK - close gripper
+//					PCA9685_SetServoAngle(0, 0);
+//				} else { // PLACE - open gripper
+//					PCA9685_SetServoAngle(0, 80);
+//				}
+//			} else {
+//				HAL_UART_Transmit_IT(&huart3, (uint8_t*)"IK Error\n", 9);
+//			}
+//		} else {
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
+//		}
+//
+//		// clear buffer for extra safety (next reception will overwrite)
+//		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+
+
+
+	    //test just UART msg with stepper for now:
+		if (uartRxBuffer[0] == '!' && uartRxBuffer[14] == '#' && uartRxBuffer[15] == '#')
+		{
+			uint8_t command_type = uartRxBuffer[1];
+
+			/* Message Format: StartDelimiter(!) | Command(1B) | X(4B) | Y(4B) | Z(4B) | EndDelimiter(#)
+			* message = struct.pack('!cB3f3s',
+			* b'!', # Start delimiter
+			* command_type, # 1 byte
+			* x, y, z, # 3 floats (4 bytes each)
+			* b'##') # End delimiter (2 bytes)
+			*/
+
+
+			// Extract x, y, z from uart msg(convert from big-endian to little-endian)
+			uint32_t x_uint, y_uint, z_uint;
+			float x, y, z;
+
+			memcpy(&x_uint, &uartRxBuffer[2], 4);
+			x_uint = __REV(x_uint); // Reverse bytes for little-endian
+			memcpy(&x, &x_uint, sizeof(float));
+
+			memcpy(&y_uint, &uartRxBuffer[6], 4);
+			y_uint = __REV(y_uint);
+			memcpy(&y, &y_uint, sizeof(float));
+
+			memcpy(&z_uint, &uartRxBuffer[10], 4);
+			z_uint = __REV(z_uint);
+			memcpy(&z, &z_uint, sizeof(float));
+
+			// Debug message
+			char debugMsg[64];
+			snprintf(debugMsg, sizeof(debugMsg), "CMD: %d, X: %.2f, Y: %.2f, Z: %.2f\n", command_type, x, y, z);
+//			sprintf(debugMsg, "CMD: %d, X: %d.%02d, Y: %d.%02d, Z: %d.%02d\n",
+//			    command_type,
+//			    (int)x, (int)(x * 100) % 100,
+//			    (int)y, (int)(y * 100) % 100,
+//			    (int)z, (int)(z * 100) % 100);
+			HAL_UART_Transmit_IT(&huart3, (uint8_t*)debugMsg, strlen(debugMsg));
+
+
+			// Release both stepper semaphores simultaneously to complete stepper tasks
+			osSemaphoreRelease(stepperTask1Semaphore);
+			osSemaphoreRelease(stepperTask2Semaphore);
+
+			//wait until stepper tasks completed to continue (platform reaches expected height)
+			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+		} else {
+			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
+		}
+
+		// clear buffer for extra safety (next reception will overwrite)
+		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+
+
 	}
-
-
-//  /* Infinite loop */
-//  for(;;)
-//  {
-//    osDelay(1);
-//  }
   /* USER CODE END StartArmTask */
 }
 

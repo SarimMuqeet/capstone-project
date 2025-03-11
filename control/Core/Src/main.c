@@ -284,15 +284,20 @@ void motor2Delay(uint32_t delay)
 }
 
 
-//void motorOff()
-//{
-//    // Switch off the idle current to the motor
-//    // Otherwise L298N module will heat up
-//    HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET); // IN1
-//    HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET); // IN2
-//    HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET); // IN3
-//    HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET); // IN4
-//}
+void motorOff()
+{
+    // Switch off the idle current to the motor
+    // Otherwise L298N module will heat up
+    HAL_GPIO_WritePin(M1_IN1_PORT, M1_IN1_PIN, GPIO_PIN_RESET); // IN1
+    HAL_GPIO_WritePin(M1_IN2_PORT, M1_IN2_PIN, GPIO_PIN_RESET); // IN2
+    HAL_GPIO_WritePin(M1_IN3_PORT, M1_IN3_PIN, GPIO_PIN_RESET); // IN3
+    HAL_GPIO_WritePin(M1_IN4_PORT, M1_IN4_PIN, GPIO_PIN_RESET); // IN4
+
+    HAL_GPIO_WritePin(M2_IN1_PORT, M2_IN1_PIN, GPIO_PIN_RESET); // IN1
+    HAL_GPIO_WritePin(M2_IN2_PORT, M2_IN2_PIN, GPIO_PIN_RESET); // IN2
+    HAL_GPIO_WritePin(M2_IN3_PORT, M2_IN3_PIN, GPIO_PIN_RESET); // IN3
+    HAL_GPIO_WritePin(M2_IN4_PORT, M2_IN4_PIN, GPIO_PIN_RESET); // IN4
+}
 
 void stepCCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
 {
@@ -456,35 +461,6 @@ void stepCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN
 
 void step2CCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
 {
-//	for (int x = 0; x < steps; x++) {
-//		switch (x % 4) {
-//			case 0: // Energize IN4
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//			case 1: // Energize IN3
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//			case 2: // Energize IN2
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
-//				break;
-//			case 3: // Energize IN1
-//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
-//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
-//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
-//				break;
-//		}
-//		motor2Delay(delay); // Delay between steps
-//	}
 
 	for (int x = 0; x < steps; x++) {
 		switch (x % 4) {
@@ -1353,6 +1329,10 @@ void StartArmTask(void *argument)
 	float j1_angle, j2_angle, j3_angle;
 
 
+
+//	osSemaphoreRelease(armTaskSemaphore);
+
+
 	for(;;) {
 		char str[64] = {0};
 		snprintf(str, sizeof(str), "\nWaiting for Semaphore (UART interrupt)\n");
@@ -1360,19 +1340,72 @@ void StartArmTask(void *argument)
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str, sizeof (str));
 
 		//Acquire Semaphore (Wait for UART Signal)
-		osSemaphoreAcquire(armTaskSemaphore, osWaitForever); // COMMENT WHEN TESTING MOTORS BY THEMSELVES, UNCOMMENT WHEN WITH NANO
+//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever); // COMMENT WHEN TESTING MOTORS BY THEMSELVES, UNCOMMENT WHEN WITH NANO
 
-		/*
-		 *
-		 *
+
+		///*
+
+		//working grab water bottle and go up!!
+
+//		PCA9685_SetServoAngle(12, 20);  // Set to 0°
+//
+//		//--- New Stepper Control Section ---//
+//	    // Release both stepper semaphores simultaneously to complete stepper tasks
+//	    osSemaphoreRelease(stepperTask1Semaphore);
+//	    osSemaphoreRelease(stepperTask2Semaphore);
+//
+//		//wait until stepper tasks completed
+//	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+
+//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+		PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 0°
+		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
+		PCA9685_SetServoAngle(13, 90);  // Set to 0°
+		PCA9685_SetServoAngle(12, 80);
+		osDelay(pdMS_TO_TICKS(2000));
+
+		PCA9685_SetServoAngle(12, 20);
+
+		//potential small delay before gripper
+		osDelay(pdMS_TO_TICKS(800));
+
+		PCA9685_SetServoAngle_DS3225(15, 55);  // Set to 0°
+		osDelay(pdMS_TO_TICKS(800));
+
+
+		PCA9685_SetServoAngle_DS3225(14, 50);  // Set to 0°
+		osDelay(pdMS_TO_TICKS(800));
+
+
+		PCA9685_SetServoAngle(13, 30);
+		osDelay(pdMS_TO_TICKS(3000));
+
+
 		//--- New Stepper Control Section ---//
-	    // Release both stepper semaphores simultaneously to complete stepper tasks
-	    osSemaphoreRelease(stepperTask1Semaphore);
-	    osSemaphoreRelease(stepperTask2Semaphore);
+		// Release both stepper semaphores simultaneously to complete stepper tasks
+		osSemaphoreRelease(stepperTask1Semaphore);
+		osSemaphoreRelease(stepperTask2Semaphore);
 
 		//wait until stepper tasks completed
-	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
-	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+		//let go of object
+//		PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 0°
+//		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
+//		PCA9685_SetServoAngle(13, 90);  // Set to 0°
+//		PCA9685_SetServoAngle(12, 80);
+//		osDelay(pdMS_TO_TICKS(2000));
+
+//		motorOff();
+
+
+
+
+
 
 
 		//encoder funcs -----------
@@ -1411,81 +1444,35 @@ void StartArmTask(void *argument)
 
 
 
-//		char str[64] = {0};
-//		sprintf(str, "Semaphore Acquired\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)uartRxBuffer, sizeof (uartRxBuffer), 10);
-
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*)uartRxBuffer, sizeof (uartRxBuffer));
 
 
-		//clear buffer before waiting for next interrupt
-//		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+		//test servo control
+		//		//default values
+//		PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
+//		PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
+//		PCA9685_SetServoAngle(13, 0);  // Set to 0°
+//		PCA9685_SetServoAngle(12, 0);  // Set to 0°
+//		PCA9685_SetServoAngle(0, 0);  // Set to 0°
+//		osDelay(pdMS_TO_TICKS(2000));
+//		PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 90°
+//		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 90°
+//		PCA9685_SetServoAngle(13, 90);  // Set to 90°
+//		PCA9685_SetServoAngle(12, 80);  // Set to 80°
+
+		//tested values
+//		PCA9685_SetServoAngle_DS3225(15, 80);  // Set to 90°
+//		PCA9685_SetServoAngle_DS3225(14, 155);  // Set to 90°
+//		PCA9685_SetServoAngle(13, 50);  // Set to 90°
+//		PCA9685_SetServoAngle(12, 0);  // Set to 80°
+
+//		    PCA9685_SetServoAngle(0, 80);  // Set to 0°
+
+//		PCA9685_SetServoAngle_DS3225(15, 80);
+//		PCA9685_SetServoAngle_DS3225(14, 155);
+//		PCA9685_SetServoAngle(13, 50);
 
 
-//	    // Alternate between setting the servo to 0° and 180°
-//	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
-//	    PCA9685_SetServoAngle(14, 0);  // Set to 0°
-//	    PCA9685_SetServoAngle_DS3225(13, 0);  // Set to 0°
-//	    PCA9685_SetServoAngle_DS3225(0, 0);  // Set to 0°
-//		char str2[64] = {0};
-//		sprintf(str2, "Servo Set to 0\n");
-//		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
-//
-//////	    HAL_Delay(500);  // Wait for 500 ms
-//	    osDelay(pdMS_TO_TICKS(2000));
-//	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
-//	    PCA9685_SetServoAngle(14, 180);  // Set to 0°
-//	    PCA9685_SetServoAngle_DS3225(13, 180);  // Set to 0°
-//	    PCA9685_SetServoAngle_DS3225(0, 180);  // Set to 0°
-////	    HAL_Delay(500);  // Wait for 500 ms
-//	    osDelay(pdMS_TO_TICKS(2000));
-//
-//	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
-////	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
-
-
-
-//		//inverse kinematics method -----------------------------------------------------------
-//		//target_gamma to be hardcoded, target_x, target_y to be read in from uartBuffer
-//		float target_gamma = 90.0;
-//		bool status = ikinematics(target_x, target_y, target_gamma, &j1_angle, &j2_angle, &j3_angle);
-//		if(status == true){
-//			//set servo to desired position
-//			PCA9685_SetServoAngle_DS3225(15, j1_angle);  // Set to 0°
-//			PCA9685_SetServoAngle_DS3225(14, j2_angle);  // Set to 0°
-//			PCA9685_SetServoAngle(13, j3_angle);  // Set to 0°
-////			PCA9685_SetServoAngle(0, 0);  // Set to 0°
-//		}
-
-
-
-	    // Alternate between setting the servo to 0° and 180°
-		PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
-		PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
-		PCA9685_SetServoAngle(13, 0);  // Set to 0°
-		PCA9685_SetServoAngle(0, 0);  // Set to 0°
-
-	    PCA9685_SetServoAngle(0, 0);  // Set to 0°
-		char str2[64] = {0};
-		sprintf(str2, "Servo Set to 0\n");
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
-
-////	    HAL_Delay(500);  // Wait for 500 ms
-	    osDelay(pdMS_TO_TICKS(2000));
-		PCA9685_SetServoAngle_DS3225(15, 180);  // Set to 0°
-		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
-		PCA9685_SetServoAngle(13, 180);  // Set to 0°
-
-	    PCA9685_SetServoAngle(0, 80);  // Set to 0°
-//	    HAL_Delay(500);  // Wait for 500 ms
-	    osDelay(pdMS_TO_TICKS(2000));
-
-	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
-//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
-
-
-
-		 */
+		 // */
 
 
 
@@ -1567,86 +1554,148 @@ void StartArmTask(void *argument)
 
 
 
-	    //test just UART msg with stepper for now:
-		if (uartRxBuffer[0] == '!' && uartRxBuffer[14] == '#' && uartRxBuffer[15] == '#')
-		{
-			uint8_t command_type = uartRxBuffer[1];
-
-			/* Message Format: StartDelimiter(!) | Command(1B) | X(4B) | Y(4B) | Z(4B) | EndDelimiter(#)
-			* message = struct.pack('!cB3f3s',
-			* b'!', # Start delimiter
-			* command_type, # 1 byte
-			* x, y, z, # 3 floats (4 bytes each)
-			* b'##') # End delimiter (2 bytes)
-			*/
 
 
-			// Extract x, y, z from uart msg(convert from big-endian to little-endian)
-			uint32_t x_uint, y_uint, z_uint;
-			float x, y, z;
-
-			memcpy(&x_uint, &uartRxBuffer[2], 4);
-			x_uint = __REV(x_uint); // Reverse bytes for little-endian
-			memcpy(&x, &x_uint, sizeof(float));
-
-			memcpy(&y_uint, &uartRxBuffer[6], 4);
-			y_uint = __REV(y_uint);
-			memcpy(&y, &y_uint, sizeof(float));
-
-			memcpy(&z_uint, &uartRxBuffer[10], 4);
-			z_uint = __REV(z_uint);
-			memcpy(&z, &z_uint, sizeof(float));
-
-			// Debug message
-			char debugMsg[64];
-			snprintf(debugMsg, sizeof(debugMsg), "CMD: %d, X: %.2f, Y: %.2f, Z: %.2f\n", command_type, x, y, z);
-//			sprintf(debugMsg, "CMD: %d, X: %d.%02d, Y: %d.%02d, Z: %d.%02d\n",
-//			    command_type,
-//			    (int)x, (int)(x * 100) % 100,
-//			    (int)y, (int)(y * 100) % 100,
-//			    (int)z, (int)(z * 100) % 100);
-			HAL_UART_Transmit_IT(&huart3, (uint8_t*)debugMsg, strlen(debugMsg));
 
 
-			// Release both stepper semaphores simultaneously to complete stepper tasks
-			osSemaphoreRelease(stepperTask1Semaphore);
-			osSemaphoreRelease(stepperTask2Semaphore);
+//		//harcoded gripper test
+//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+//		PCA9685_SetServoAngle_DS3225(15, 90);
+//		PCA9685_SetServoAngle_DS3225(14, 180);
+//		PCA9685_SetServoAngle(13, 90);
+//		PCA9685_SetServoAngle(12, 80);
+//		osDelay(pdMS_TO_TICKS(2000));
+//
+////		//potential small delay before gripper
+////		osDelay(pdMS_TO_TICKS(800));
+////		PCA9685_SetServoAngle(12, 0);
+////
+////		osDelay(pdMS_TO_TICKS(800));
+////
+////		PCA9685_SetServoAngle_DS3225(15, 55);  // Set to 0°
+////		osDelay(pdMS_TO_TICKS(800));
+////
+////
+////		PCA9685_SetServoAngle_DS3225(14, 125);  // Set to 0°
+////		osDelay(pdMS_TO_TICKS(800));
+////
+////
+////		PCA9685_SetServoAngle(13, 30);
+////		osDelay(pdMS_TO_TICKS(800));
 
-			//wait until stepper tasks completed to continue (platform reaches expected height)
-			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
-			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
 
-			//test servo control
-			PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
-			PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
-			PCA9685_SetServoAngle(13, 0);  // Set to 0°
-			PCA9685_SetServoAngle(12, 0);  // Set to 0°
-//			PCA9685_SetServoAngle(0, 0);  // Set to 0°
 
-			char str2[64] = {0};
-			snprintf(str2, sizeof(str2), "Servo Set to 0\n");
-			HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
 
-	////	    HAL_Delay(500);  // Wait for 500 ms
-		    osDelay(pdMS_TO_TICKS(2000));
-			PCA9685_SetServoAngle_DS3225(15, 180);  // Set to 0°
-			PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
-			PCA9685_SetServoAngle(13, 180);  // Set to 0°
-			PCA9685_SetServoAngle(12, 80);  // Set to 0°
 
-//		    PCA9685_SetServoAngle(0, 80);  // Set to 0°
-	//	    HAL_Delay(500);  // Wait for 500 ms
-		    osDelay(pdMS_TO_TICKS(2000));
 
-		    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
-	//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
 
-		} else {
-			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
-		}
-
-		// clear buffer for extra safety (next reception will overwrite)
-		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+//	    //test just UART msg with stepper for now:
+//		if (uartRxBuffer[0] == '!' && uartRxBuffer[14] == '#' && uartRxBuffer[15] == '#')
+//		{
+//			uint8_t command_type = uartRxBuffer[1];
+//
+//			/* Message Format: StartDelimiter(!) | Command(1B) | X(4B) | Y(4B) | Z(4B) | EndDelimiter(#)
+//			* message = struct.pack('!cB3f3s',
+//			* b'!', # Start delimiter
+//			* command_type, # 1 byte
+//			* x, y, z, # 3 floats (4 bytes each)
+//			* b'##') # End delimiter (2 bytes)
+//			*/
+//
+//
+//			// Extract x, y, z from uart msg(convert from big-endian to little-endian)
+//			uint32_t x_uint, y_uint, z_uint;
+//			float x, y, z;
+//
+//			memcpy(&x_uint, &uartRxBuffer[2], 4);
+//			x_uint = __REV(x_uint); // Reverse bytes for little-endian
+//			memcpy(&x, &x_uint, sizeof(float));
+//
+//			memcpy(&y_uint, &uartRxBuffer[6], 4);
+//			y_uint = __REV(y_uint);
+//			memcpy(&y, &y_uint, sizeof(float));
+//
+//			memcpy(&z_uint, &uartRxBuffer[10], 4);
+//			z_uint = __REV(z_uint);
+//			memcpy(&z, &z_uint, sizeof(float));
+//
+//			// Debug message
+//			char debugMsg[64];
+//			snprintf(debugMsg, sizeof(debugMsg), "CMD: %d, X: %.2f, Y: %.2f, Z: %.2f\n", command_type, x, y, z);
+////			sprintf(debugMsg, "CMD: %d, X: %d.%02d, Y: %d.%02d, Z: %d.%02d\n",
+////			    command_type,
+////			    (int)x, (int)(x * 100) % 100,
+////			    (int)y, (int)(y * 100) % 100,
+////			    (int)z, (int)(z * 100) % 100);
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)debugMsg, strlen(debugMsg));
+//
+//
+////			// Release both stepper semaphores simultaneously to complete stepper tasks
+////			osSemaphoreRelease(stepperTask1Semaphore);
+////			osSemaphoreRelease(stepperTask2Semaphore);
+////
+////			//wait until stepper tasks completed to continue (platform reaches expected height)
+////			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+////			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+////			//test servo control
+////			PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
+////			PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
+////			PCA9685_SetServoAngle(13, 0);  // Set to 0°
+////			PCA9685_SetServoAngle(12, 0);  // Set to 0°
+//////			PCA9685_SetServoAngle(0, 0);  // Set to 0°
+////
+////			char str2[64] = {0};
+////			snprintf(str2, sizeof(str2), "Servo Set to 0\n");
+////			HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
+////
+////	////	    HAL_Delay(500);  // Wait for 500 ms
+////		    osDelay(pdMS_TO_TICKS(2000));
+////			PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 0°
+////			PCA9685_SetServoAngle_DS3225(14, 90);  // Set to 0°
+////			PCA9685_SetServoAngle(13, 90);  // Set to 0°
+////			PCA9685_SetServoAngle(12, 80);  // Set to 0°
+//
+//
+//			//harcoded gripper test
+////			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+////			PCA9685_SetServoAngle_DS3225(15, 90);
+////			PCA9685_SetServoAngle_DS3225(14, 180);
+////			PCA9685_SetServoAngle(13, 90);
+////			PCA9685_SetServoAngle(12, 80);
+////			osDelay(pdMS_TO_TICKS(2000));
+//
+//			//potential small delay before gripper
+//			osDelay(pdMS_TO_TICKS(800));
+//			PCA9685_SetServoAngle(12, 0);
+//
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//			PCA9685_SetServoAngle_DS3225(15, 55);  // Set to 0°
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//
+//			PCA9685_SetServoAngle_DS3225(14, 125);  // Set to 0°
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//
+//			PCA9685_SetServoAngle(13, 30);
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//
+//		    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
+//	//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+//
+//		} else {
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
+//		}
+//
+//		// clear buffer for extra safety (next reception will overwrite)
+//		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+//
+//
 
 
 	}
@@ -1686,8 +1735,12 @@ void StartStep1Task(void *argument)
   {
 	osSemaphoreAcquire(stepperTask1Semaphore, osWaitForever);
 	// Run motor 1 movement
-	stepCV(800, 200000, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN,
+	//up    -     8000 delay works
+	stepCV(16000, 28000000, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN,
 		  M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
+	//down
+//	stepCCV(800, 600000, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN,
+//		  M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
 	osSemaphoreRelease(armTaskSemaphore); // Notify completion
 //    osDelay(1);
   }
@@ -1709,7 +1762,11 @@ void startStep2Task(void *argument)
   {
 	osSemaphoreAcquire(stepperTask2Semaphore, osWaitForever);
 	// Run motor 2 movement
-	step2CCV(790, 200000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
+	//down
+//	step2CV(800, 600000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
+//			M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
+	//up
+	step2CCV(16000, 28000000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
 			M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
 	osSemaphoreRelease(armTaskSemaphore); // Notify completion
 //    osDelay(1);

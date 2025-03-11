@@ -211,6 +211,7 @@ PCA9685_STATUS PCA9685_SetPwm(uint8_t Channel, uint16_t OnTime, uint16_t OffTime
 PCA9685_STATUS PCA9685_SetPin(uint8_t Channel, uint16_t Value, uint8_t Invert);
 #ifdef PCA9685_SERVO_MODE
 PCA9685_STATUS PCA9685_SetServoAngle(uint8_t Channel, float Angle);
+PCA9685_STATUS PCA9685_SetServoAngle_DS3225(uint8_t Channel, float Angle);
 #endif
 
 PCA9685_STATUS PCA9685_Init(I2C_HandleTypeDef *hi2c);

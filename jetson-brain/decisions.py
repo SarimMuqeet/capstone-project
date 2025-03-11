@@ -54,7 +54,7 @@ class decision_maker(Node):
 
         # TODO PART 5 choose your threshold
         # NEW increased threshold to account for arm length (when pick and place occurring)
-        self.reachThreshold=0.2 # NEW, prev 0.2 for lab
+        self.reachThreshold=0.3 # NEW, prev 0.2 for lab
 
         # TODO PART 5 your localization type
         #self.localizer=localization(type=kalmanFilter)
@@ -76,6 +76,8 @@ class decision_maker(Node):
 
 
         # NEW - init trajectory planner by default
+        #tune for PID
+        # self.controller=trajectoryController(klp = 0.3, klv = 0.3, kli=0.3, kap = 0.4, kav=0.2, kai=0.2) 
         self.controller=trajectoryController(klp = 0.4, klv = 0.5, kli=0.2, kap = 0.4, kav=0.2, kai=0.2)      
         self.planner=planner(TRAJECTORY_PLANNER)
         # self.controller=controller(klp=0.2, klv=0.5, kap=0.8, kav=0.6)  
@@ -97,6 +99,7 @@ class decision_maker(Node):
             # (2, 0, 0.5), #works,
             # (3.5, 2, 0.5), #works
             (4.5, 2, 0.5),
+            # (1, 2, 0.5),
             #CURR TEST
             (0, 0, 0.7)
             # (0.1, 0.3, 0.3), 
@@ -153,19 +156,6 @@ class decision_maker(Node):
             # (1.0, -2.5, 0.0) 
         ]
 
-
-        # # Debugging Filter out of bounds
-        # valid_objects = []
-        # max_rows, max_cols = self.planner.costMap.shape
-        # for obj in predefined_objects:
-        #     cell = self.planner.m_utilites.position_2_cell(obj[:2])
-        #     if 0 <= cell[0] < max_rows and 0 <= cell[1] < max_cols:
-        #         valid_objects.append(obj)
-        #     else:
-        #         print(f"Object {obj} is out of bounds (cell: {cell})")
-
-        # return valid_objects
-
         return predefined_objects
     
     # NEW 
@@ -178,6 +168,7 @@ class decision_maker(Node):
         
         #obtain object location from queue
         x, y, z = self.object_queue[0]
+        #read xyz from the object detection node array being returned...
 
         #send PICK command (type 0)
         self.uart.send_command(0, x, y, z)
@@ -197,6 +188,10 @@ class decision_maker(Node):
 
         x, y, z = self.drop_off_locations[self.current_drop_off_index ]
         
+        #hardcode dropoff
+
+        
+
         #send PLACE command (type 1)
         self.uart.send_command(1, x, y, z)
 
@@ -385,7 +380,11 @@ class decision_maker(Node):
             print("State: TO_TIDY_DESTINATION")
             
             path_to_destination = self.planner.plan(current_pose[:2], self.goal)
-            
+            print(f"tidy destination (x,y): {self.goal}")
+            print(f"current pose: {current_pose[:2]}")
+            print(f"path planned from: {current_pose[:2]} to {self.goal}")
+
+
             if path_to_destination:
                 #publish to rviz
                 self.publishPathOnRviz2(path_to_destination)

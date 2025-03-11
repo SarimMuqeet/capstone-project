@@ -99,6 +99,33 @@ class UART_Transmitter:
             print("UART connection closed.")
 
 
+if __name__ == '__main__':
+    # Initialize UART connection
+    uart = UART_Transmitter(port="/dev/ttyTHS1", baudrate=115200)
+
+    # Test values
+    command_type = 0
+    # command_type = 1  # 0 = PICK, 1 = PLACE
+
+
+    #example PICK: -20, 20
+    #platform: -10, 8
+    #table destination: -18, 25
+
+
+    x, y, z = -15, 20, -5.25
+    #-20, 20, -5.25  # Example XYZ coordinates
+    # x, y, z = -18, 25, 0
+
+    # Send test command
+    uart.send_command(command_type, x, y, z)
+
+    # Allow some time for transmission
+    time.sleep(1)
+
+    # Close UART connection
+    uart.close()
+
 
 # if __name__ == '__main__':
 #     # Example usage (for testing)

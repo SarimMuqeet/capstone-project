@@ -8,6 +8,11 @@ import struct
 import math
 import time
 
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+import json
+
 # Camera and model configuration
 HOST = '192.168.233.1'
 PORT = 80
@@ -50,8 +55,11 @@ CLASS_NAMES = [
     "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 ]
 
+# selected_classes = [0, 32, 39, 40, 41, 56, 57, 58, 59, 60, 62, 65, 67, 73, 74, 75, 77]
+selected_classes = [39, 41]
+
 # Tracking configuration
-MATCH_IOU_THRESH = 0.4  # Increased from 0.3
+MATCH_IOU_THRESH = 0.3  # Increased from 0.3
 MAX_DISAPPEARED = 15
 
 objects = {}
@@ -147,7 +155,7 @@ def update_object_tracking(detections):
     return objects
 
 def image_coord_to_world(x, y, depth_mm):
-    """Improved perspective-aware coordinate conversion"""
+    """Simplified coordinate conversion without tilt"""
     if depth_mm < MIN_VALID_DEPTH_MM or depth_mm > MAX_VALID_DEPTH_MM:
         return (0, 0, 0)
     
@@ -163,10 +171,13 @@ def image_coord_to_world(x, y, depth_mm):
     
     # Convert to millimeters
     x_mm = x_norm * scale * 1000
-    y_mm = y_norm * scale * 1000
     z_mm = depth * 1000
     
+    # Calculate Y coordinate considering camera height (12 cm = 120 mm)
+    y_mm = depth_mm # Adjusted for camera height above ground
+    
     return x_mm, y_mm, z_mm
+
 
 def frame_config_encode(trigger_mode=1, deep_mode=1, deep_shift=255, ir_mode=1, status_mode=2, status_mask=7, rgb_mode=1, rgb_res=0, expose_time=0):
     return struct.pack("<BBBBBBBBi",
@@ -196,7 +207,7 @@ def preprocess_image(image):
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
-def postprocess(outputs, image_shape, conf_thresh=0.5, nms_thresh=0.4):
+def postprocess(outputs, image_shape, conf_thresh=0.2, nms_thresh=0.4):
     """Decodes YOLOv4-tiny raw outputs into bounding boxes"""
     orig_h, orig_w = image_shape[:2]
     input_dim = 416  # YOLOv4-tiny default input size
@@ -234,7 +245,7 @@ def postprocess(outputs, image_shape, conf_thresh=0.5, nms_thresh=0.4):
                     class_conf = class_scores[class_id]
                     score = objectness * class_conf
 
-                    if score > conf_thresh:
+                    if score > conf_thresh and class_id in selected_classes:
                         # Convert to image coordinates
                         x1 = bx - bw / 2.0
                         y1 = by - bh / 2.0
@@ -283,15 +294,15 @@ def get_depth_coordinates(u_rgb, v_rgb):
     return u_depth, v_depth
 
 def get_depth_value(depth_frame, u_rgb, v_rgb):
-    """Accurate depth sampling with coordinate scaling"""
+    """Accurate depth sampling with coordinate scaling and tilt adjustment"""
     # Convert RGB to Depth coordinates
     u_depth = int(u_rgb * DEPTH_WIDTH / FRAME_WIDTH)
     v_depth = int(v_rgb * DEPTH_HEIGHT / FRAME_HEIGHT)
     
-    # Sample 3x3 area for stability
+    # Sample 5x5 area for stability
     depth_samples = []
-    for du in [-1, 0, 1]:
-        for dv in [-1, 0, 1]:
+    for du in range(-2, 3):
+        for dv in range(-2, 3):
             x = np.clip(u_depth + du, 0, DEPTH_WIDTH-1)
             y = np.clip(v_depth + dv, 0, DEPTH_HEIGHT-1)
             val = depth_frame[y, x]
@@ -301,18 +312,37 @@ def get_depth_value(depth_frame, u_rgb, v_rgb):
     return np.median(depth_samples) if depth_samples else 0
     
 def main():
-    # Configure camera (Enable IR projector with ir_mode=1)
-    # In Code 2's main() function, replace camera config with:
+    # Initialize ROS2 with explicit context
+    context = rclpy.context.Context()
+    rclpy.init(context=context)
+    
+    # Create node with explicit context
+    node = Node('object_tracker', context=context)
+    
+    # Create publisher with reliable QoS
+    pub = node.create_publisher(
+        String,
+        'tracked_objects',
+        qos_profile=rclpy.qos.QoSPresetProfiles.SENSOR_DATA.value
+    )
+    
+    # Create executor with timeout
+    executor = rclpy.executors.SingleThreadedExecutor(context=context)
+    executor.add_node(node)
+    
+    # Initial registration spins
+    print("Performing initial registration...")
+    for _ in range(10):
+        executor.spin_once(timeout_sec=0.1)
+        time.sleep(0.1)
+    
     if not post_encode_config(frame_config_encode(
-        deep_mode=0,        # Keep 16-bit depth
-        ir_mode=1,          # Enable IR projector
-        expose_time=5000,   # Increased exposure time for better depth
-        deep_shift=0,
-        status_mask=0
+        deep_mode=0, ir_mode=1, expose_time=5000, 
+        deep_shift=0, status_mask=0
     )):
         print("Failed to configure camera")
-        return
-
+        raise RuntimeError("Camera configuration failed")
+    
     # Set up TensorRT
     engine = get_engine(ENGINE_PATH)
     context = engine.create_execution_context()
@@ -337,180 +367,219 @@ def main():
     fps = 0
 
     stream = cuda.Stream()
-
-    while True:
-        frame_data = get_frame_from_http()
-        if frame_data is None:
-            print("Failed to get frame from camera")
-            continue
-
-        # Parse frame data
-        config = struct.unpack("<BBBBBBBBi", frame_data[16:16+12])
-        (trigger_mode, deep_mode, deep_shift, ir_mode, status_mode, status_mask, rgb_mode, rgb_res, expose_time) = config
-
-        frame_payload = frame_data[16+12:]  # Skip frame_id, frame_stamp, config
-        deep_data_size, rgb_data_size = struct.unpack("<ii", frame_payload[:8])
-
-        # Calculate sizes based on config
-        deepth_size = (320 * 240 * 2) >> deep_mode  # deep_mode=0: 16-bit (153600 bytes)
-        ir_size = (320 * 240 * 2) >> ir_mode        # ir_mode=1: 8-bit (76800 bytes)
-        status_size = (320 * 240 // 8) * (16 if status_mode == 0 else 2 if status_mode == 1 else 8 if status_mode == 2 else 1)
-
-        # Check if deep_data_size matches the sum of individual parts
-        expected_deep_data_size = deepth_size + ir_size + status_size
-        if deep_data_size != expected_deep_data_size:
-            print(f"Deep data size mismatch: expected {expected_deep_data_size}, got {deep_data_size}")
-            continue
-
-        # Extract each part from the payload
-        frame_payload_rest = frame_payload[8:]  # Skip deep_data_size and rgb_data_size
-        deepth_data = frame_payload_rest[:deepth_size]
-        ir_data = frame_payload_rest[deepth_size:deepth_size + ir_size]
-        status_data = frame_payload_rest[deepth_size + ir_size:deepth_size + ir_size + status_size]
-        rgb_data = frame_payload_rest[deepth_size + ir_size + status_size:deepth_size + ir_size + status_size + rgb_data_size]
-
-        # Decode RGB image
-        frame = cv2.imdecode(np.frombuffer(rgb_data, np.uint8), cv2.IMREAD_COLOR)
-        if frame is None or frame.size == 0:
-            print("Failed to decode RGB image")
-            continue
-
-        # Process depth data
-        try:
-            # Keep depth in mm (don't divide by 1000)
-            depth_data = np.frombuffer(deepth_data, dtype=np.uint16)
-            depth_array = depth_data.reshape((DEPTH_HEIGHT, DEPTH_WIDTH))
-            
-            # Filter invalid values
-            valid_mask = (depth_array >= MIN_VALID_DEPTH_MM) & (depth_array <= MAX_VALID_DEPTH_MM)
-            depth_array = np.where(valid_mask, depth_array, 0)
-        except Exception as e:
-            print(f"Depth error: {str(e)}")
-            depth_array = np.zeros((DEPTH_HEIGHT, DEPTH_WIDTH), dtype=np.uint16)
-        
-        # Preprocess and infer
-        input_image = preprocess_image(frame)
-        cuda.memcpy_htod_async(d_input, input_image.ravel(), stream)
-        
-        context.set_tensor_address(input_name, int(d_input))
-        for name in output_names:
-            context.set_tensor_address(name, int(d_outputs[name]))
-        
-        context.execute_async_v3(stream.handle)
-        for name in output_names:
-            cuda.memcpy_dtoh_async(h_outputs[name], d_outputs[name], stream)
-        
-        stream.synchronize()
-
-        # Postprocess
-        detections = postprocess(
-            [h_outputs["030_convolutional"], h_outputs["037_convolutional"]], 
-            frame.shape
-        )
-
-        tracked_objects = update_object_tracking(detections)
-        
-        # FPS calculation
-        current_time = time.time()
-        fps = 1 / (current_time - prev_time)
-        prev_time = current_time
-
-        # Process tracked objects with stabilized depth
-                # Process tracked objects with stabilized depth
-        for obj_id, obj in tracked_objects.items():
-            u_rgb, v_rgb = obj['center']
-            
-            # Convert to depth coordinates
-            u_depth = int(u_rgb * (DEPTH_WIDTH / FRAME_WIDTH))
-            v_depth = int(v_rgb * (DEPTH_HEIGHT / FRAME_HEIGHT))
-            
-            half_size = DEPTH_SAMPLE_SIZE // 2
-            depth_samples = []
-            
-            # Sample with boundary checks
-            for du in range(-half_size, half_size+1):
-                for dv in range(-half_size, half_size+1):
-                    sample_u = np.clip(u_depth + du, 0, DEPTH_WIDTH-1)
-                    sample_v = np.clip(v_depth + dv, 0, DEPTH_HEIGHT-1)
-                    depth_val = depth_array[sample_v, sample_u]
-                    
-                    # Check if value is valid and not NaN
-                    if not np.isnan(depth_val) and MIN_VALID_DEPTH_MM <= depth_val <= MAX_VALID_DEPTH_MM:
-                        depth_samples.append(depth_val)
-            
-            # Only update if we get enough samples
-            min_valid_samples = 3  # Require at least 3 valid samples
-            if len(depth_samples) >= min_valid_samples:
-                median_depth = np.median(depth_samples)
-                
-                # Initialize smoothed depth if needed
-                if 'smoothed_depth' not in obj:
-                    obj['smoothed_depth'] = median_depth
-                else:
-                    # EMA smoothing only when we have new data
-                    obj['smoothed_depth'] = (SMOOTHING_FACTOR * median_depth + 
-                                           (1 - SMOOTHING_FACTOR) * obj['smoothed_depth'])
-                
-                # Store valid depth
-                d = obj['smoothed_depth']
-                obj['valid_frames'] = obj.get('valid_frames', 0) + 1
-            else:
-                # Use last valid depth if available
-                d = obj.get('smoothed_depth', 0)
-                if 'valid_frames' in obj:
-                    obj['valid_frames'] -= 1
-
-            # Handle persistent invalid measurements
-            if obj.get('valid_frames', 0) < -5:  # 5 consecutive bad frames
-                d = 0
-            else:
-                obj['world_coords'] = image_coord_to_world(u_rgb, v_rgb, d)
-            
-            # Debug output
-            status = "VALID" if d > MIN_VALID_DEPTH_MM else "INVALID"
-            print(f"Obj {obj_id} {status} | Samples: {len(depth_samples)} | Depth: {d:.2f}m")
-        
-        # Draw tracked objects with IDs
-        for obj_id, obj in tracked_objects.items():
-            if 'world_coords' not in obj:
+    
+    try:
+        while True:
+            frame_data = get_frame_from_http()
+            if frame_data is None:
+                print("Failed to get frame from camera")
                 continue
+
+            # Parse frame data
+            config = struct.unpack("<BBBBBBBBi", frame_data[16:16+12])
+            (trigger_mode, deep_mode, deep_shift, ir_mode, status_mode, status_mask, rgb_mode, rgb_res, expose_time) = config
+
+            frame_payload = frame_data[16+12:]  # Skip frame_id, frame_stamp, config
+            deep_data_size, rgb_data_size = struct.unpack("<ii", frame_payload[:8])
+
+            # Calculate sizes based on config
+            deepth_size = (320 * 240 * 2) >> deep_mode  # deep_mode=0: 16-bit (153600 bytes)
+            ir_size = (320 * 240 * 2) >> ir_mode        # ir_mode=1: 8-bit (76800 bytes)
+            status_size = (320 * 240 // 8) * (16 if status_mode == 0 else 2 if status_mode == 1 else 8 if status_mode == 2 else 1)
+
+            # Check if deep_data_size matches the sum of individual parts
+            expected_deep_data_size = deepth_size + ir_size + status_size
+            if deep_data_size != expected_deep_data_size:
+                print(f"Deep data size mismatch: expected {expected_deep_data_size}, got {deep_data_size}")
+                continue
+
+            # Extract each part from the payload
+            frame_payload_rest = frame_payload[8:]  # Skip deep_data_size and rgb_data_size
+            deepth_data = frame_payload_rest[:deepth_size]
+            ir_data = frame_payload_rest[deepth_size:deepth_size + ir_size]
+            status_data = frame_payload_rest[deepth_size + ir_size:deepth_size + ir_size + status_size]
+            rgb_data = frame_payload_rest[deepth_size + ir_size + status_size:deepth_size + ir_size + status_size + rgb_data_size]
+
+            # Decode RGB image
+            frame = cv2.imdecode(np.frombuffer(rgb_data, np.uint8), cv2.IMREAD_COLOR)
+            if frame is None or frame.size == 0:
+                print("Failed to decode RGB image")
+                continue
+
+            # Process depth data
+            try:
+                # Keep depth in mm (don't divide by 1000)
+                depth_data = np.frombuffer(deepth_data, dtype=np.uint16)
+                depth_array = depth_data.reshape((DEPTH_HEIGHT, DEPTH_WIDTH))
                 
-            x1, y1, x2, y2 = obj['bbox']
-            u_rgb, v_rgb = obj['center']
+                # Filter invalid values
+                valid_mask = (depth_array >= MIN_VALID_DEPTH_MM) & (depth_array <= MAX_VALID_DEPTH_MM)
+                depth_array = np.where(valid_mask, depth_array, 0)
+            except Exception as e:
+                print(f"Depth error: {str(e)}")
+                depth_array = np.zeros((DEPTH_HEIGHT, DEPTH_WIDTH), dtype=np.uint16)
             
-            # Get accurate depth measurement
-            depth_mm = get_depth_value(depth_array, u_rgb, v_rgb)
+            # Preprocess and infer
+            input_image = preprocess_image(frame)
+            cuda.memcpy_htod_async(d_input, input_image.ravel(), stream)
             
-            # Store smoothed depth
-            if 'smoothed_depth' not in obj:
-                obj['smoothed_depth'] = depth_mm
-            else:
-                obj['smoothed_depth'] = SMOOTHING_FACTOR * depth_mm + (1 - SMOOTHING_FACTOR) * obj['smoothed_depth']
+            context.set_tensor_address(input_name, int(d_input))
+            for name in output_names:
+                context.set_tensor_address(name, int(d_outputs[name]))
             
-            # Convert to world coordinates
-            x_mm, y_mm, z_mm = image_coord_to_world(u_rgb, v_rgb, obj['smoothed_depth'])
+            context.execute_async_v3(stream.handle)
+            for name in output_names:
+                cuda.memcpy_dtoh_async(h_outputs[name], d_outputs[name], stream)
             
-            # Store for display
-            obj['world_coords'] = (x_mm, y_mm, z_mm)
-            obj['distance'] = z_mm  # Use Z directly for distance
+            stream.synchronize()
 
-            # Update the display label:
-            label = (f"{CLASS_NAMES[obj['class_id']]} ID:{obj_id} "
-                     f"Dist: {obj['distance']/1000:.2f}m")  # Convert mm to meters
+            # Postprocess
+            detections = postprocess(
+                [h_outputs["030_convolutional"], h_outputs["037_convolutional"]], 
+                frame.shape
+            )
+
+            tracked_objects = update_object_tracking(detections)
+
+            # Publish even if no objects detected ⚠️
+            objects_list = []
+            for obj_id, obj in tracked_objects.items():
+                if 'world_coords' not in obj:
+                    continue
+                objects_list.append({
+                    'class': CLASS_NAMES[obj['class_id']],
+                    'x': obj['world_coords'][0] / 1000.0,
+                    'y': obj['world_coords'][1] / 1000.0,
+                    'z': obj['world_coords'][2] / 1000.0
+                })
+
+            # Publish message
+            msg = String()
+            msg.data = json.dumps(objects_list)
+            pub.publish(msg)
+            print(f"Published {len(objects_list)} objects")
+
+            # Regular spin with timeout
+            executor.spin_once(timeout_sec=0.01)
             
-            # Draw elements
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
-            text_y = y1 - 10 if y1 > 20 else y1 + 20
-            cv2.putText(frame, label, (x1, text_y), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
-            cv2.circle(frame, (u_rgb, v_rgb), 3, (0,0,255), -1)
+            # FPS calculation
+            current_time = time.time()
+            fps = 1 / (current_time - prev_time)
+            prev_time = current_time
 
-        # Display
-        cv2.imshow("Object Detection", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            # Process tracked objects with stabilized depth
+                    # Process tracked objects with stabilized depth
+            for obj_id, obj in tracked_objects.items():
+                u_rgb, v_rgb = obj['center']
+                
+                # Convert to depth coordinates
+                u_depth = int(u_rgb * (DEPTH_WIDTH / FRAME_WIDTH))
+                v_depth = int(v_rgb * (DEPTH_HEIGHT / FRAME_HEIGHT))
+                
+                half_size = DEPTH_SAMPLE_SIZE // 2
+                depth_samples = []
+                
+                # Sample with boundary checks
+                for du in range(-half_size, half_size+1):
+                    for dv in range(-half_size, half_size+1):
+                        sample_u = np.clip(u_depth + du, 0, DEPTH_WIDTH-1)
+                        sample_v = np.clip(v_depth + dv, 0, DEPTH_HEIGHT-1)
+                        depth_val = depth_array[sample_v, sample_u]
+                        
+                        # Check if value is valid and not NaN
+                        if not np.isnan(depth_val) and MIN_VALID_DEPTH_MM <= depth_val <= MAX_VALID_DEPTH_MM:
+                            depth_samples.append(depth_val)
+                
+                # Only update if we get enough samples
+                min_valid_samples = 3  # Require at least 3 valid samples
+                if len(depth_samples) >= min_valid_samples:
+                    median_depth = np.median(depth_samples)
+                    
+                    # Initialize smoothed depth if needed
+                    if 'smoothed_depth' not in obj:
+                        obj['smoothed_depth'] = median_depth
+                    else:
+                        # EMA smoothing only when we have new data
+                        obj['smoothed_depth'] = (SMOOTHING_FACTOR * median_depth + 
+                                            (1 - SMOOTHING_FACTOR) * obj['smoothed_depth'])
+                    
+                    # Store valid depth
+                    d = obj['smoothed_depth']
+                    obj['valid_frames'] = obj.get('valid_frames', 0) + 1
+                else:
+                    # Use last valid depth if available
+                    d = obj.get('smoothed_depth', 0)
+                    if 'valid_frames' in obj:
+                        obj['valid_frames'] -= 1
 
-    cv2.destroyAllWindows()
+                # Handle persistent invalid measurements
+                if obj.get('valid_frames', 0) < -5:  # 5 consecutive bad frames
+                    d = 0
+                else:
+                    obj['world_coords'] = image_coord_to_world(u_rgb, v_rgb, d)
+                
+                # Debug output
+                status = "VALID" if d > MIN_VALID_DEPTH_MM else "INVALID"
+                print(f"Obj {obj_id} {status} | Samples: {len(depth_samples)} | Depth: {d:.2f}m")
+            
+            for obj_id, obj in tracked_objects.items():
+                if 'world_coords' not in obj:
+                    continue
+                
+                # Bounding box conversion
+                x1, y1, x2, y2 = obj['bbox']
+
+            # Draw tracked objects with IDs
+            for obj_id, obj in tracked_objects.items():
+                if 'world_coords' not in obj:
+                    continue
+
+                x1, y1, x2, y2 = obj['bbox']
+                u_rgb, v_rgb = obj['center']
+                conf = obj['confidence']
+                
+                # Get accurate depth measurement
+                depth_mm = get_depth_value(depth_array, u_rgb, v_rgb)
+                
+                # Store smoothed depth
+                if 'smoothed_depth' not in obj:
+                    obj['smoothed_depth'] = depth_mm
+                else:
+                    obj['smoothed_depth'] = SMOOTHING_FACTOR * depth_mm + (1 - SMOOTHING_FACTOR) * obj['smoothed_depth']
+                
+                # Convert to world coordinates
+                x_mm, y_mm, z_mm = image_coord_to_world(u_rgb, v_rgb, obj['smoothed_depth'])
+                
+                # Store for display
+                obj['world_coords'] = (x_mm, -0.12, z_mm)
+                obj['distance'] = z_mm  # Use Z directly for distance
+
+                # Update the display label:
+                label = (f"{CLASS_NAMES[obj['class_id']]} ID:{obj_id} "
+                f" {conf:.2f} "
+                f"X: {x_mm/1000:.2f} "
+                f"Z: {z_mm/1000:.2f}")
+                
+                # Draw elements
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
+                text_y = y1 - 10 if y1 > 20 else y1 + 20
+                cv2.putText(frame, label, (x1, text_y), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+                cv2.circle(frame, (u_rgb, v_rgb), 3, (0,0,255), -1)
+            
+            # Display
+            cv2.imshow("Object Detection", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Cleanup
+        executor.shutdown()
+        node.destroy_node()
+        rclpy.shutdown(context=context)
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()

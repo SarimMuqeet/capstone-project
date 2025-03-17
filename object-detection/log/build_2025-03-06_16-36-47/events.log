@@ -1,0 +1,88 @@
+[0.000000] (-) TimerEvent: {}
+[0.029933] (object_detection_interfaces) JobQueued: {'identifier': 'object_detection_interfaces', 'dependencies': OrderedDict()}
+[0.031145] (object_detection_interfaces) JobStarted: {'identifier': 'object_detection_interfaces'}
+[0.055602] (object_detection_interfaces) JobProgress: {'identifier': 'object_detection_interfaces', 'progress': 'cmake'}
+[0.057385] (object_detection_interfaces) Command: {'cmd': ['/usr/bin/cmake', '/home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces', '-DCMAKE_INSTALL_PREFIX=/home/homey/Desktop/capstone-project/object-detection/install/object_detection_interfaces'], 'cwd': '/home/homey/Desktop/capstone-project/object-detection/build/object_detection_interfaces', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('LANGUAGE', 'en_US'), ('USER', 'homey'), ('ROS_PACKAGE_PATH', '/home/homey/Desktop/capstone-project/object-detection/install/object_tracking_msgs/share'), ('XDG_SESSION_TYPE', 'x11'), ('GIT_ASKPASS', '/usr/share/code/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/home/homey/Desktop/capstone-project/object-detection/install/object_tracking_msgs/lib:/usr/local/cuda/lib64:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/homey'), ('CHROME_DESKTOP', 'code.desktop'), ('OLDPWD', '/home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces'), ('TERM_PROGRAM_VERSION', '1.97.2'), ('DESKTOP_SESSION', 'ubuntu'), ('DEBUGPY_ADAPTER_ENDPOINTS', '/home/homey/.vscode/extensions/ms-python.debugpy-2025.0.1-linux-arm64/.noConfigDebugAdapterEndpoints/endpoint-79b13ff59b3784a8.txt'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/code.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('XDG_SEAT_PATH', '/org/freedesktop/DisplayManager/Seat0'), ('VSCODE_GIT_ASKPASS_MAIN', '/usr/share/code/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/usr/share/code/code'), ('MANAGERPID', '1844'), ('PYDEVD_DISABLE_FILE_VALIDATION', '1'), ('SYSTEMD_EXEC_PID', '2013'), ('BUNDLED_DEBUGPY_PATH', '/home/homey/.vscode/extensions/ms-python.debugpy-2025.4.0-linux-arm64/bundled/libs/debugpy'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '7194'), ('IM_CONFIG_PHASE', '1'), ('COLCON_PREFIX_PATH', '/home/homey/Desktop/capstone-project/object-detection/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'homey'), ('JOURNAL_STREAM', '8:36697'), ('_', '/home/homey/.local/bin/colcon'), ('ROS_VERSION', '2'), ('PKG_CONFIG_PATH', '/home/homey/Desktop/capstone-project/object-detection/install/object_tracking_msgs/lib/aarch64-linux-gnu/pkgconfig:/home/homey/Desktop/capstone-project/object-detection/install/object_tracking_msgs/lib/pkgconfig'), ('XDG_SESSION_CLASS', 'user'), ('ROS_SUPER_CLIENT', 'True'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/usr/local/cuda/bin:/opt/ros/humble/bin:/home/homey/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/homey/.vscode/extensions/ms-python.debugpy-2025.0.1-linux-arm64/bundled/scripts/noConfigScripts:/usr/src/tensorrt/bin:/usr/src/tensorrt/bin:/usr/src/tensorrt/bin'), ('SESSION_MANAGER', 'local/homey-desktop:@/tmp/.ICE-unix/1985,unix/homey-desktop:/tmp/.ICE-unix/1985'), ('GDM_LANG', 'en_US'), ('INVOCATION_ID', '7331e62dfa20463aa8175ec976cbff47'), ('XDG_SESSION_PATH', '/org/freedesktop/DisplayManager/Session0'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':0'), ('VSCODE_DEBUGPY_ADAPTER_ENDPOINTS', '/home/homey/.vscode/extensions/ms-python.debugpy-2025.4.0-linux-arm64/.noConfigDebugAdapterEndpoints/endpoint-79b13ff59b3784a8.txt'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'Unity'), ('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/home/homey/.Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-69650a3024.sock'), ('TERM_PROGRAM', 'vscode'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('ROS_DOMAIN_ID', '0'), ('XDG_GREETER_DATA_DIR', '/var/lib/lightdm-data/homey'), ('AMENT_PREFIX_PATH', '/home/homey/Desktop/capstone-project/object-detection/install/object_detection_interfaces:/opt/ros/humble'), ('ORIGINAL_XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('SHELL', '/bin/bash'), ('ROS_DISCOVERY_SERVER', '129.97.71.36:11811'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/homey/Desktop/capstone-project/object-detection/build/object_detection_interfaces'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu:/usr/share/gnome:/usr/local/share:/usr/share:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/homey/Desktop/capstone-project/object-detection/install/object_tracking_msgs/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/home/homey/Desktop/capstone-project/object-detection/install/object_detection_interfaces:/home/homey/Desktop/capstone-project/object-detection/install/object_tracking_msgs')]), 'shell': False}
+[0.099401] (-) TimerEvent: {}
+[0.194434] (object_detection_interfaces) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[0.199523] (-) TimerEvent: {}
+[0.300147] (-) TimerEvent: {}
+[0.308423] (object_detection_interfaces) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[0.325733] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.400334] (-) TimerEvent: {}
+[0.471177] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.490522] (object_detection_interfaces) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.491677] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.492712] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.499195] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.500409] (-) TimerEvent: {}
+[0.600945] (-) TimerEvent: {}
+[0.667219] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.682941] (object_detection_interfaces) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.683559] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.684254] (object_detection_interfaces) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.690308] (object_detection_interfaces) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.11 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.701122] (-) TimerEvent: {}
+[0.802512] (-) TimerEvent: {}
+[0.903182] (-) TimerEvent: {}
+[1.004024] (-) TimerEvent: {}
+[1.035103] (object_detection_interfaces) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter \n'}
+[1.104218] (-) TimerEvent: {}
+[1.204977] (-) TimerEvent: {}
+[1.252872] (object_detection_interfaces) StdoutLine: {'line': b'-- Found rosidl_default_generators: 1.2.0 (/opt/ros/humble/share/rosidl_default_generators/cmake)\n'}
+[1.259834] (object_detection_interfaces) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[1.275357] (object_detection_interfaces) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.6 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[1.305156] (-) TimerEvent: {}
+[1.365845] (object_detection_interfaces) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[1.405348] (-) TimerEvent: {}
+[1.442046] (object_detection_interfaces) StdoutLine: {'line': b'-- Found std_msgs: 4.2.4 (/opt/ros/humble/share/std_msgs/cmake)\n'}
+[1.505543] (-) TimerEvent: {}
+[1.606228] (-) TimerEvent: {}
+[1.706878] (-) TimerEvent: {}
+[1.807537] (-) TimerEvent: {}
+[1.908208] (-) TimerEvent: {}
+[1.927618] (object_detection_interfaces) StderrLine: {'line': b"Error parsing '/home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces/package.xml':\n"}
+[2.008400] (-) TimerEvent: {}
+[2.030873] (object_detection_interfaces) StderrLine: {'line': b'Traceback (most recent call last):\n'}
+[2.032072] (object_detection_interfaces) StderrLine: {'line': b'  File "/home/homey/.local/lib/python3.10/site-packages/catkin_pkg/package.py", line 610, in parse_package_string\n'}
+[2.032521] (object_detection_interfaces) StderrLine: {'line': b'    root = dom.parseString(data)\n'}
+[2.032809] (object_detection_interfaces) StderrLine: {'line': b'  File "/usr/lib/python3.10/xml/dom/minidom.py", line 2000, in parseString\n'}
+[2.033076] (object_detection_interfaces) StderrLine: {'line': b'    return expatbuilder.parseString(string)\n'}
+[2.033313] (object_detection_interfaces) StderrLine: {'line': b'  File "/usr/lib/python3.10/xml/dom/expatbuilder.py", line 925, in parseString\n'}
+[2.033540] (object_detection_interfaces) StderrLine: {'line': b'    return builder.parseString(string)\n'}
+[2.033759] (object_detection_interfaces) StderrLine: {'line': b'  File "/usr/lib/python3.10/xml/dom/expatbuilder.py", line 223, in parseString\n'}
+[2.033971] (object_detection_interfaces) StderrLine: {'line': b'    parser.Parse(string, True)\n'}
+[2.034179] (object_detection_interfaces) StderrLine: {'line': b'xml.parsers.expat.ExpatError: junk after document element: line 4, column 0\n'}
+[2.034386] (object_detection_interfaces) StderrLine: {'line': b'\n'}
+[2.034589] (object_detection_interfaces) StderrLine: {'line': b'During handling of the above exception, another exception occurred:\n'}
+[2.034792] (object_detection_interfaces) StderrLine: {'line': b'\n'}
+[2.034995] (object_detection_interfaces) StderrLine: {'line': b'Traceback (most recent call last):\n'}
+[2.035196] (object_detection_interfaces) StderrLine: {'line': b'  File "/opt/ros/humble/share/ament_cmake_core/cmake/core/package_xml_2_cmake.py", line 150, in <module>\n'}
+[2.035453] (object_detection_interfaces) StderrLine: {'line': b'    main()\n'}
+[2.035659] (object_detection_interfaces) StderrLine: {'line': b'  File "/opt/ros/humble/share/ament_cmake_core/cmake/core/package_xml_2_cmake.py", line 53, in main\n'}
+[2.035865] (object_detection_interfaces) StderrLine: {'line': b'    raise e\n'}
+[2.036068] (object_detection_interfaces) StderrLine: {'line': b'  File "/opt/ros/humble/share/ament_cmake_core/cmake/core/package_xml_2_cmake.py", line 49, in main\n'}
+[2.036273] (object_detection_interfaces) StderrLine: {'line': b'    package = parse_package_string(\n'}
+[2.036477] (object_detection_interfaces) StderrLine: {'line': b'  File "/home/homey/.local/lib/python3.10/site-packages/catkin_pkg/package.py", line 612, in parse_package_string\n'}
+[2.036680] (object_detection_interfaces) StderrLine: {'line': b"    raise InvalidPackage('The manifest contains invalid XML:\\n%s' % ex, filename)\n"}
+[2.036922] (object_detection_interfaces) StderrLine: {'line': b"catkin_pkg.package.InvalidPackage: Error(s) in package '/home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces/package.xml':\n"}
+[2.037143] (object_detection_interfaces) StderrLine: {'line': b'The manifest contains invalid XML:\n'}
+[2.037349] (object_detection_interfaces) StderrLine: {'line': b'junk after document element: line 4, column 0\n'}
+[2.079132] (object_detection_interfaces) StderrLine: {'line': b'\x1b[31mCMake Error at /opt/ros/humble/share/ament_cmake_core/cmake/core/ament_package_xml.cmake:95 (message):\n'}
+[2.080067] (object_detection_interfaces) StderrLine: {'line': b'  execute_process(/usr/bin/python3\n'}
+[2.080394] (object_detection_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/package_xml_2_cmake.py\n'}
+[2.080666] (object_detection_interfaces) StderrLine: {'line': b'  /home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces/package.xml\n'}
+[2.080970] (object_detection_interfaces) StderrLine: {'line': b'  /home/homey/Desktop/capstone-project/object-detection/build/object_detection_interfaces/ament_cmake_core/package.cmake)\n'}
+[2.081244] (object_detection_interfaces) StderrLine: {'line': b'  returned error code 1\n'}
+[2.081477] (object_detection_interfaces) StderrLine: {'line': b'Call Stack (most recent call first):\n'}
+[2.081703] (object_detection_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/ament_cmake_core/cmake/core/ament_package_xml.cmake:49 (_ament_package_xml)\n'}
+[2.081964] (object_detection_interfaces) StderrLine: {'line': b'  /opt/ros/humble/share/rosidl_cmake/cmake/rosidl_generate_interfaces.cmake:226 (ament_package_xml)\n'}
+[2.082189] (object_detection_interfaces) StderrLine: {'line': b'  CMakeLists.txt:13 (rosidl_generate_interfaces)\n'}
+[2.082407] (object_detection_interfaces) StderrLine: {'line': b'\n'}
+[2.082620] (object_detection_interfaces) StderrLine: {'line': b'\x1b[0m\n'}
+[2.082829] (object_detection_interfaces) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[2.083067] (object_detection_interfaces) StdoutLine: {'line': b'See also "/home/homey/Desktop/capstone-project/object-detection/build/object_detection_interfaces/CMakeFiles/CMakeOutput.log".\n'}
+[2.106043] (object_detection_interfaces) CommandEnded: {'returncode': 1}
+[2.107907] (object_detection_interfaces) JobEnded: {'identifier': 'object_detection_interfaces', 'rc': 1}
+[2.109196] (-) TimerEvent: {}
+[2.119660] (-) EventReactorShutdown: {}

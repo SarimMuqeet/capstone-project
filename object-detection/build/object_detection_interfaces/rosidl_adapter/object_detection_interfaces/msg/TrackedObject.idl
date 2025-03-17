@@ -1,0 +1,32 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from object_detection_interfaces/msg/TrackedObject.msg
+// generated code does not contain a copyright notice
+
+
+module object_detection_interfaces {
+  module msg {
+    struct TrackedObject {
+      int32 obj_id;
+
+      string class_name;
+
+      float confidence;
+
+      @verbatim (language="comment", text=
+        "[x1, y1, x2, y2]")
+      sequence<int32> bbox;
+
+      @verbatim (language="comment", text=
+        "[u, v] in image coordinates")
+      sequence<int32> center;
+
+      @verbatim (language="comment", text=
+        "[x, y, z] in meters")
+      sequence<float> world_coords;
+
+      @verbatim (language="comment", text=
+        "Straight-line distance in meters")
+      float distance;
+    };
+  };
+};

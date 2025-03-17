@@ -1,0 +1,7 @@
+int32 obj_id
+string class_name
+float32 confidence
+int32[] bbox          # [x1, y1, x2, y2]
+int32[] center        # [u, v] in image coordinates
+float32[] world_coords  # [x, y, z] in meters
+float32 distance        # Straight-line distance in meters

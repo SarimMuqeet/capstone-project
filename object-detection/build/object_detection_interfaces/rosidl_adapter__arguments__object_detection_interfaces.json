@@ -1,0 +1,7 @@
+{
+  "package_name": "object_detection_interfaces",
+  "non_idl_tuples": [
+    "/home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces:msg/TrackedObject.msg",
+    "/home/homey/Desktop/capstone-project/object-detection/object_detection_interfaces:msg/TrackedObjectsArray.msg"
+  ]
+}

@@ -24,4 +24,5 @@ class RobotStateMachine:
 
         self.machine.add_transition('review_objects', 'PLACE_OBJECT', 'REVIEW')
 
+        self.machine.add_transition('test_pick', 'IDENTIFY', 'PICK')
     

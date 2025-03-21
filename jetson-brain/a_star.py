@@ -315,7 +315,7 @@ def search(maze, start, end):
 
         # test if goal is reached or not, if yes then return the path
         if current_node == end_node:
-            print ("Goal reached")
+            # print ("Goal reached")
             return return_path(current_node,maze)
 
         # Generate children from all adjacent squares

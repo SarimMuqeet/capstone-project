@@ -13,7 +13,7 @@ class planner:
     
     def plan(self, startPose, endPose):
 
-        print(f"Type of planner {self.type} \n\n")
+        # print(f"Type of planner {self.type} \n\n")
         
         if self.type==POINT_PLANNER:
             return self.point_planner(endPose)
@@ -77,7 +77,7 @@ class planner:
         #Find path using a_start algorithm
         # print(f"CostMap {self.costMap}\n")
 
-        print(f"startPose {startPose}, endPose {endPose}\n")
+        # print(f"startPose {startPose}, endPose {endPose}\n")
 
         path = search(self.costMap, startPose, endPose)
         # TODO PART 5 convert the cell pixels into the cartesian coordinates

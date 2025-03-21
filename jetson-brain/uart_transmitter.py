@@ -104,8 +104,8 @@ if __name__ == '__main__':
     uart = UART_Transmitter(port="/dev/ttyTHS1", baudrate=115200)
 
     # Test values
-    command_type = 0
-    # command_type = 1  # 0 = PICK, 1 = PLACE
+    # command_type = 0
+    command_type = 1  # 0 = PICK, 1 = PLACE
 
 
     #example PICK: -20, 20
@@ -113,9 +113,9 @@ if __name__ == '__main__':
     #table destination: -18, 25
 
 
-    x, y, z = -15, 20, -5.25
+    # x, y, z = -15, 20, -5.25
     #-20, 20, -5.25  # Example XYZ coordinates
-    # x, y, z = -18, 25, 0
+    x, y, z =-18, 25, 0
 
     # Send test command
     uart.send_command(command_type, x, y, z)

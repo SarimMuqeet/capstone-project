@@ -25,9 +25,13 @@
 /* USER CODE BEGIN Includes */
 //servo board driver
 #include "pca9685.h"
+//for IK
+#include <math.h>
+#include <stdbool.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 //#include <iostream>
 //#include <cstring>
 //#include <cmath>
@@ -41,10 +45,38 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+// Define constants for the links inverse kinematics
+#define L12 15.0  // Length of link 1
+#define L23 15.0   // Length of link 2
+#define L34 8.5   // Length of link 3
+
 #define STEPS_PER_REVS 4096 //motor and step type defined
 #define HALF_STEPS 8
 #define MIN_TO_US (60*1000000)
 #define NUM_SEQ (STEPS_PER_REVS/HALF_STEPS)
+
+//define pins for first stepper
+// ---- for synchronized step
+#define M1_IN1_PIN GPIO_PIN_3
+#define M1_IN1_PORT GPIOE
+#define M1_IN2_PIN GPIO_PIN_4
+#define M1_IN2_PORT GPIOE
+#define M1_IN3_PIN GPIO_PIN_5
+#define M1_IN3_PORT GPIOE
+#define M1_IN4_PIN GPIO_PIN_6
+#define M1_IN4_PORT GPIOE
+int stepNumber;          // which step the motor is on
+
+//define pins for second stepper
+#define M2_IN1_PIN GPIO_PIN_5
+#define M2_IN1_PORT GPIOA
+#define M2_IN2_PIN GPIO_PIN_6
+#define M2_IN2_PORT GPIOA
+#define M2_IN3_PIN GPIO_PIN_5
+#define M2_IN3_PORT GPIOB
+#define M2_IN4_PIN GPIO_PIN_6
+#define M2_IN4_PORT GPIOB
 
 #define TOTAL_REV_ANGLE 360
 
@@ -80,6 +112,8 @@ ETH_HandleTypeDef heth;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
@@ -102,7 +136,7 @@ const osThreadAttr_t parsingTask_attributes = {
 osThreadId_t armTaskHandle;
 const osThreadAttr_t armTask_attributes = {
   .name = "armTask",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityHigh2,
 };
 /* Definitions for gripperTask */
@@ -112,20 +146,30 @@ const osThreadAttr_t gripperTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
-/* Definitions for controlTask */
-osThreadId_t controlTaskHandle;
-const osThreadAttr_t controlTask_attributes = {
-  .name = "controlTask",
+/* Definitions for step1Task */
+osThreadId_t step1TaskHandle;
+const osThreadAttr_t step1Task_attributes = {
+  .name = "step1Task",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for step2Task */
+osThreadId_t step2TaskHandle;
+const osThreadAttr_t step2Task_attributes = {
+  .name = "step2Task",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
 
 //for handling UART and StartArmTask synchronization
 osSemaphoreId_t armTaskSemaphore;
+//semaphore for stepper motor control
+osSemaphoreId_t stepperTask1Semaphore;
+osSemaphoreId_t stepperTask2Semaphore;
 
 //buffer to store UART messages
-uint8_t uartRxBuffer[30];
+uint8_t uartRxBuffer[17];
 
 
 /* USER CODE END PV */
@@ -139,11 +183,14 @@ static void MX_USB_OTG_HS_USB_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM4_Init(void);
 void StartDefaultTask(void *argument);
 void StartParsingTask(void *argument);
 void StartArmTask(void *argument);
 void StartGripperTask(void *argument);
-void StartControlTask(void *argument);
+void StartStep1Task(void *argument);
+void startStep2Task(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -151,6 +198,52 @@ void StartControlTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// Function to calculate inverse kinematics
+bool ikinematics(float positionx, float positiony, float gamma, float *J1, float *J2, float *J3) {
+    float xe = positionx;
+    float ye = positiony;
+    float g = gamma;
+
+    // Calculate the position P3
+    float x3 = xe - (L34 * cosf(g * M_PI / 180.0));  // Convert gamma to radians
+    float y3 = ye - (L34 * sinf(g * M_PI / 180.0));
+    float C = sqrtf(x3 * x3 + y3 * y3);
+
+    if ((L12 + L23) > C) {
+        // Calculate angles a and B
+        float a = acosf((L12 * L12 + L23 * L23 - C * C) / (2 * L12 * L23));
+        float B = acosf((L12 * L12 + C * C - L23 * L23) / (2 * L12 * C));
+
+        // Joint angles for elbow-down configuration
+        float J1a = ((atan2f(y3, x3) - B)* 180.0 / M_PI);
+        float J2a = 180.0 - (a * 180.0 / M_PI);
+        float J3a = g - J1a - J2a;
+
+        // Joint angles for elbow-up configuration
+        float J1b = ((atan2f(y3, x3) + B)* 180.0 / M_PI);
+        float J2b = -(180.0 - (a * 180.0 / M_PI));
+        float J3b = g - J1b - J2b;
+
+        // Output the results (for example, printing to the serial monitor)
+//        printf("The joint 1, 2, and 3 angles are (%f, %f, %f) respectively for elbow-down configuration.\n", J1a, J2a, J3a);
+//        printf("The joint 1, 2, and 3 angles are (%f, %f, %f) respectively for elbow-up configuration.\n", J1b, J2b, J3b);
+
+        //return A-Configuration for now
+        *J1 = J1a;
+        *J2 = J2a;
+        *J3 = J3a;
+
+        //return success
+        return true;
+
+    } else {
+//        printf("     Dimension error!\n");
+//        printf("     End-effector is outside the workspace.\n");
+    	return false;
+    }
+}
+
 
 //delay function for stepper motor control
 void delay(uint16_t us)
@@ -165,72 +258,306 @@ void delay(uint16_t us)
 //min speed 1 rpm, max speed ~13 rpm, want to go from microseconds/step (us) to rev/min
 void set_rpm(int rpm)
 {
-	delay(MIN_TO_US/(STEPS_PER_REVS*rpm));
+//	delay(MIN_TO_US/(STEPS_PER_REVS*rpm));
+
+//	osDelay(MIN_TO_US/(STEPS_PER_REVS*rpm));
+//	osDelay(pdMS_TO_TICKS(500));
+//	osDelay(MIN_TO_US / (STEPS_PER_REVS * rpm) / 1000); // Convert µs to ms
+
+	uint32_t delay_us = (60 * 1000000) / (STEPS_PER_REVS * rpm);
+	delay(delay_us); // Use microsecond-precision delay
 }
 
-//delay function for stepper motor control
-void half_stepper_control(int step)
+void motorDelay(uint32_t delay)
 {
-	//setup for half-step stepper motor control (change later to micro-drive)
-	//define each step in terms of motor character - 4096 steps/rev, 8 steps/rev in code
-	/*
-	 * PG2 - GPIO_PIN_2 - IN1
-	 * PG3 - GPIO_PIN_3 - IN2
-	 * PG4 - GPIO_PIN_4 - IN3
-	 * PG5 - GPIO_PIN_5 - IN4
-	 */
-	switch(step){
-	case 0:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_RESET);
-		break;
-	case 1:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_RESET);
-		break;
-	case 2:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_RESET);
-		break;
-	case 3:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_RESET);
-		break;
-	case 4:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_RESET);
-		break;
-	case 5:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_SET);
-		break;
-	case 6:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_SET);
-		break;
-	case 7:
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2, GPIO_PIN_SET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_3, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_4, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(GPIOG, GPIO_PIN_5, GPIO_PIN_SET);
-		break;
+//    __HAL_TIM_SET_COUNTER(&htim1, 0);
+//    while (__HAL_TIM_GET_COUNTER(&htim1) < delay);
+	  //works for synchro between motors
+      osDelay(pdMS_TO_TICKS(delay / 1000));  // Convert µs to RTOS ticks
+}
 
+void motor2Delay(uint32_t delay)
+{
+//    __HAL_TIM_SET_COUNTER(&htim4, 0);
+//    while (__HAL_TIM_GET_COUNTER(&htim4) < delay);
+      osDelay(pdMS_TO_TICKS(delay / 1000));  // Convert µs to RTOS ticks
+}
+
+
+void motorOff()
+{
+    // Switch off the idle current to the motor
+    // Otherwise L298N module will heat up
+    HAL_GPIO_WritePin(M1_IN1_PORT, M1_IN1_PIN, GPIO_PIN_RESET); // IN1
+    HAL_GPIO_WritePin(M1_IN2_PORT, M1_IN2_PIN, GPIO_PIN_RESET); // IN2
+    HAL_GPIO_WritePin(M1_IN3_PORT, M1_IN3_PIN, GPIO_PIN_RESET); // IN3
+    HAL_GPIO_WritePin(M1_IN4_PORT, M1_IN4_PIN, GPIO_PIN_RESET); // IN4
+
+    HAL_GPIO_WritePin(M2_IN1_PORT, M2_IN1_PIN, GPIO_PIN_RESET); // IN1
+    HAL_GPIO_WritePin(M2_IN2_PORT, M2_IN2_PIN, GPIO_PIN_RESET); // IN2
+    HAL_GPIO_WritePin(M2_IN3_PORT, M2_IN3_PIN, GPIO_PIN_RESET); // IN3
+    HAL_GPIO_WritePin(M2_IN4_PORT, M2_IN4_PIN, GPIO_PIN_RESET); // IN4
+}
+
+void stepCCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
+{
+//	for (int x = 0; x < steps; x++) {
+//		switch (x % 4) {
+//			case 0: // Energize IN4
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//			case 1: // Energize IN3
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//			case 2: // Energize IN2
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+//				break;
+//			case 3: // Energize IN1
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//		}
+//		motorDelay(delay); // Delay between steps
+//	}
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 2: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 3: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+		}
+		motorDelay(delay); // Delay between steps
+	}
+
+}
+
+void stepCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
+{
+//    for (int x = 0; x < steps; x++) {
+//        switch (x % 4) {
+//            case 0: // Energize IN1
+//                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+//                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//                break;
+//            case 1: // Energize IN2
+//                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+//                break;
+//            case 2: // Energize IN3
+//                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+//                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//                break;
+//            case 3: // Energize IN4
+//                HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//                HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+//                HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//                break;
+//        }
+//        motorDelay(delay); // Delay between steps
+//    }
+
+	//working
+//	for (int x = 0; x < steps; x++) {
+//		switch (x % 4) {
+//			case 0: // Energize IN4
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//			case 1: // Energize IN3
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//			case 2: // Energize IN2
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+//				break;
+//			case 3: // Energize IN1
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//		}
+//		motorDelay(delay); // Delay between steps
+//	}
+
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 2: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 3: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+		}
+		motorDelay(delay); // Delay between steps
 	}
 }
+
+
+
+
+void step2CCV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
+{
+
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 2: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 3: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+		}
+		motor2Delay(delay); // Delay between steps
+	}
+
+}
+
+void step2CV (int steps, uint16_t delay, GPIO_TypeDef* IN1_PORT, uint16_t IN1_PIN, GPIO_TypeDef* IN2_PORT, uint16_t IN2_PIN, GPIO_TypeDef* IN3_PORT, uint16_t IN3_PIN, GPIO_TypeDef* IN4_PORT, uint16_t IN4_PIN)
+{
+//	for (int x = 0; x < steps; x++) {
+//		switch (x % 4) {
+//			case 0: // Energize IN4
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//			case 1: // Energize IN3
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//			case 2: // Energize IN2
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+//				break;
+//			case 3: // Energize IN1
+//				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+//				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+//				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+//				break;
+//		}
+//		motor2Delay(delay); // Delay between steps
+//	}
+
+
+	for (int x = 0; x < steps; x++) {
+		switch (x % 4) {
+			case 0: // Energize IN4
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 1: // Energize IN3
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_RESET);
+				break;
+			case 2: // Energize IN2
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+			case 3: // Energize IN1
+				HAL_GPIO_WritePin(IN1_PORT, IN1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN2_PORT, IN2_PIN, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(IN3_PORT, IN3_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(IN4_PORT, IN4_PIN, GPIO_PIN_SET);
+				break;
+		}
+		motor2Delay(delay); // Delay between steps
+	}
+}
+
 
 /*
 //controlling motor with angle specified
@@ -290,15 +617,9 @@ void Stepper_rotate (int angle, int rpm)
 
 /* UART Interrupt Callback */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//    if (huart->Instance == USART2) {
-//    	HAL_UART_Transmit(&huart3, (uint8_t*)"Interrupt Triggered\n", 20, HAL_MAX_DELAY);
-//    	// Signal armTask to start
-////        osThreadFlagsSet(armTaskHandle, 0x01);
-//    	osSemaphoreRelease(armTaskSemaphore);
-//        HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer)); // Restart reception
-//    }
     if (huart->Instance == USART2) {
         if(huart->ErrorCode == HAL_UART_ERROR_NONE) {
+        	//release arm task
             osSemaphoreRelease(armTaskSemaphore);
         }
         //potentially resetting UART reception after buffer has been cleared
@@ -350,14 +671,20 @@ int main(void)
   MX_TIM1_Init();
   MX_I2C1_Init();
   MX_USART2_UART_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
   //start timer
   HAL_TIM_Base_Start(&htim1);
+  HAL_TIM_Base_Start(&htim4);
 
   //enable UART interrupt to receive messages
 //  uint8_t uartRxBuffer[30];
   HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
+  //enable encoder mode timer
+  HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
 
 
 
@@ -375,6 +702,9 @@ int main(void)
 
   //global semaphore, used for UART and StartArmTask Synchronization
   armTaskSemaphore = osSemaphoreNew(1, 0, NULL);
+  //semaphore used for stepper tasks control
+  stepperTask1Semaphore = osSemaphoreNew(1, 0, NULL);
+  stepperTask2Semaphore = osSemaphoreNew(1, 0, NULL);
 
   /* USER CODE END RTOS_SEMAPHORES */
 
@@ -399,8 +729,11 @@ int main(void)
   /* creation of gripperTask */
   gripperTaskHandle = osThreadNew(StartGripperTask, NULL, &gripperTask_attributes);
 
-  /* creation of controlTask */
-  controlTaskHandle = osThreadNew(StartControlTask, NULL, &controlTask_attributes);
+  /* creation of step1Task */
+  step1TaskHandle = osThreadNew(StartStep1Task, NULL, &step1Task_attributes);
+
+  /* creation of step2Task */
+  step2TaskHandle = osThreadNew(startStep2Task, NULL, &step2Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -418,21 +751,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  /* stepper motor control */
-//	  //step through each step
-//	  //4096/8 = 512 seq per revolutions, motor neds 8 steps for each sequence
-//	  for(int i = 0; i < NUM_SEQ; i++){
-//		  for(int j = 0; j < HALF_STEPS; j++) {
-//			  half_stepper_control(j);
-//			  //initial stepper motor control (half-step)
-//			  set_rpm(5);
-//		  }
-//	  }
-
-	  /*servo motor control */
-	  //see threads
-
-
+	  //freeRTOS tasks used instead
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -615,7 +934,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 71;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 65535;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -640,6 +959,100 @@ static void MX_TIM1_Init(void)
   /* USER CODE BEGIN TIM1_Init 2 */
 
   /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+  //for stepper encoder ----------------
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 71;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 65535;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -770,25 +1183,35 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_GREEN_Pin|LED_RED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6
+                          |LED_YELLOW_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, LED_GREEN_Pin|LED_RED_Pin|GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_FS_PWR_EN_GPIO_Port, USB_FS_PWR_EN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_2|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_YELLOW_GPIO_Port, LED_YELLOW_Pin, GPIO_PIN_RESET);
+  /*Configure GPIO pins : PE3 PE4 PE5 PE6
+                           LED_YELLOW_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6
+                          |LED_YELLOW_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -796,8 +1219,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin */
-  GPIO_InitStruct.Pin = LED_GREEN_Pin|LED_RED_Pin;
+  /*Configure GPIO pins : PA5 PA6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LED_GREEN_Pin LED_RED_Pin PB5 PB6 */
+  GPIO_InitStruct.Pin = LED_GREEN_Pin|LED_RED_Pin|GPIO_PIN_5|GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -809,13 +1239,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(USB_FS_PWR_EN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PG2 PG3 PG4 PG5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USB_FS_OVCR_Pin */
   GPIO_InitStruct.Pin = USB_FS_OVCR_Pin;
@@ -836,13 +1259,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF10_OTG1_HS;
   HAL_GPIO_Init(USB_FS_ID_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LED_YELLOW_Pin */
-  GPIO_InitStruct.Pin = LED_YELLOW_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_YELLOW_GPIO_Port, &GPIO_InitStruct);
 
 }
 
@@ -901,136 +1317,388 @@ void StartArmTask(void *argument)
 {
   /* USER CODE BEGIN StartArmTask */
 
-
-	/* First Driver */
-
-//	//wait for I2C to stabilize before starting
-//	osDelay(100);
-//
-//	if(HAL_I2C_IsDeviceReady(&hi2c1, 0x40 << 1, 1, HAL_MAX_DELAY) == HAL_OK) {
-//		char str[64] = {0};
-//		sprintf(str, "I2C Device Found!\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
-//	} else {
-//		char str[64] = {0};
-//		sprintf(str, "I2C Device Found!\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
-//	}
-//
-//	// Create and initialize PCA9685 handle
-//	pca9685_handle_t servo_driver = {
-//		.i2c_handle = &hi2c1,                // Use I2C1 interface that's already initialized
-//		.device_address = 0x40 << 1,         // Default PCA9685 address (0x40) shifted for HAL
-////		.device_address = 0x40, //let driver handle shifting address
-//		.inverted = false                    // Normal output polarity
-//	};
-//
-//	// Initialize the PCA9685
-//	if (!pca9685_init(&servo_driver)) {
-//		HAL_UART_Transmit(&huart3, (uint8_t*)"PCA9685 init failed\n", 19, 10);
-//		Error_Handler();
-//	}
-//
-//	// Set PWM frequency for servos (typically 50Hz for most servos)
-//	if (!pca9685_set_pwm_frequency(&servo_driver, 50)) {
-//		HAL_UART_Transmit(&huart3, (uint8_t*)"PWM freq set failed\n", 19, 10);
-//		Error_Handler();
-//	}
-//
-//	HAL_UART_Transmit(&huart3, (uint8_t*)"Passed error checks, entering inf loop\n", 50, 10);
-//
-//	/* Infinite loop */
-//	for(;;)
-//	{
-//		// Move servo on channel 15 as example
-//		// duty cycle between ~2.5% and ~12.5% for 0° to 180°
-//
-//		char str2[64] = {0};
-//		sprintf(str2, "Passed error checks, setting duty cycle on motor channel 15\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str2, sizeof (str2), 10);
-//
-//		// Move to 0 degrees (~2.5% duty cycle)
-//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.025f, false);
-//		osDelay(1000);
-//
-//		char str3[64] = {0};
-//		sprintf(str3, "Passed error checks, move to 0 degrees\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str3, sizeof (str3), 10);
-//
-//		// Move to 90 degrees (~7.5% duty cycle)
-//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.075f, false);
-//		osDelay(1000);
-//
-//		char str4[64] = {0};
-//		sprintf(str4, "Passed error checks, move to 90 degrees\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str4, sizeof (str4), 10);
-//
-//		// Move to 180 degrees (~12.5% duty cycle)
-//		pca9685_set_channel_duty_cycle(&servo_driver, 0, 0.125f, false);
-//		osDelay(1000);
-//
-//		char str5[64] = {0};
-//		sprintf(str2, "Passed error checks, move to 180 degrees\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str5, sizeof (str5), 10);
-//	}
-
-
-	/*Other Driver */
-	PCA9685_Init(&hi2c1);
+	int status = PCA9685_Init(&hi2c1);
 	uint8_t ActiveServo = 15;
-//	uint8_t SERVO_COUNT = 5;
+
+	// for stepper control
+	float targetAngle = 360.0f; //arbitrary for now
+	float currStepperAngle = 0.0f;
+	int stepperRPM = 15;
+
+	//angles to track inverse kinematics func return
+	float j1_angle, j2_angle, j3_angle;
+
+
+
+//	osSemaphoreRelease(armTaskSemaphore);
+
 
 	for(;;) {
-		//Working Demo Code
-//		for (uint8_t Angle = 0; Angle < 180; Angle++) {
-//				  PCA9685_SetServoAngle(ActiveServo, Angle);
-//		}
-//		HAL_Delay(500);
-//		for (uint16_t Angle = 180; Angle > 0; Angle--) {
-//		  PCA9685_SetServoAngle(ActiveServo, Angle);
-//		}
-//		HAL_Delay(500);
-//		ActiveServo++;
-//		if (ActiveServo >= SERVO_COUNT) ActiveServo = 0;
-
 		char str[64] = {0};
-		sprintf(str, "\nWaiting for Semaphore (UART interrupt)\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)str, sizeof (str), 10);
+		snprintf(str, sizeof(str), "\nWaiting for Semaphore (UART interrupt)\n");
 		//use non blocking UART Transmit instead of regular (which blocks)
 		HAL_UART_Transmit_IT(&huart3, (uint8_t*)str, sizeof (str));
 
 		//Acquire Semaphore (Wait for UART Signal)
+//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever); // COMMENT WHEN TESTING MOTORS BY THEMSELVES, UNCOMMENT WHEN WITH NANO
+
+
+		///*
+
+		//working grab water bottle and go up!!
+
+//		PCA9685_SetServoAngle(12, 20);  // Set to 0°
+//
+//		//--- New Stepper Control Section ---//
+//	    // Release both stepper semaphores simultaneously to complete stepper tasks
+//	    osSemaphoreRelease(stepperTask1Semaphore);
+//	    osSemaphoreRelease(stepperTask2Semaphore);
+//
+//		//wait until stepper tasks completed
+//	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//	    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+
+//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+
+		PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 0°
+		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
+		PCA9685_SetServoAngle(13, 90);  // Set to 0°
+		PCA9685_SetServoAngle(12, 80);
+		osDelay(pdMS_TO_TICKS(2000));
+
+		PCA9685_SetServoAngle(12, 20);
+
+		//potential small delay before gripper
+		osDelay(pdMS_TO_TICKS(800));
+
+		PCA9685_SetServoAngle_DS3225(15, 55);  // Set to 0°
+		osDelay(pdMS_TO_TICKS(800));
+
+
+		PCA9685_SetServoAngle_DS3225(14, 50);  // Set to 0°
+		osDelay(pdMS_TO_TICKS(800));
+
+
+		PCA9685_SetServoAngle(13, 30);
+		osDelay(pdMS_TO_TICKS(3000));
+
+
+		//--- New Stepper Control Section ---//
+		// Release both stepper semaphores simultaneously to complete stepper tasks
+		osSemaphoreRelease(stepperTask1Semaphore);
+		osSemaphoreRelease(stepperTask2Semaphore);
+
+		//wait until stepper tasks completed
+		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
 		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
 
-//		char str[64] = {0};
-//		sprintf(str, "Semaphore Acquired\n");
-//		HAL_UART_Transmit(&huart3, (uint8_t*)uartRxBuffer, sizeof (uartRxBuffer), 10);
-		HAL_UART_Transmit_IT(&huart3, (uint8_t*)uartRxBuffer, sizeof (uartRxBuffer));
+		//let go of object
+//		PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 0°
+//		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 0°
+//		PCA9685_SetServoAngle(13, 90);  // Set to 0°
+//		PCA9685_SetServoAngle(12, 80);
+//		osDelay(pdMS_TO_TICKS(2000));
+
+//		motorOff();
 
 
-		//clear buffer before waiting for next interrupt
+
+
+
+
+
+		//encoder funcs -----------
+//		//read encoder count (position) only relying on A+, B+
+//		int16_t encoder_position = __HAL_TIM_GET_COUNTER(&htim3);
+//		//to reset counter
+//		__HAL_TIM_SET_COUNTER(&htim3, 0);
+//		//get current direction:
+//		uwDirection = __HAL_TIM_IS_TIM_COUNTING_DOWN(&htim3);
+
+
+//		//TO TEST - encoder control with steppers:
+//        // Read encoder position
+//        encoder_position = __HAL_TIM_GET_COUNTER(&htim3);
+//        //target position should be obtained from UART interrupt
+//        error = target_position - encoder_position;
+//
+//        // Move stepper motors until target position is reached
+//        while (abs(error) > ERROR_THRESHOLD) {
+//            if (error > 0) {
+//                // Move forward (clockwise)
+//                synchronizedStep(1, 5000); // Move 1 step forward
+//            } else {
+//                // Move backward (counter-clockwise)
+//                synchronizedStep(-1, 5000); // Move 1 step backward
+//            }
+//
+//            // Update encoder position and error
+//            encoder_position = __HAL_TIM_GET_COUNTER(&htim3);
+//            error = target_position - encoder_position;
+//        }
+//
+//        // Reset encoder counter (optional)
+//        __HAL_TIM_SET_COUNTER(&htim3, 0);
+
+
+
+
+
+
+		//test servo control
+		//		//default values
+//		PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
+//		PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
+//		PCA9685_SetServoAngle(13, 0);  // Set to 0°
+//		PCA9685_SetServoAngle(12, 0);  // Set to 0°
+//		PCA9685_SetServoAngle(0, 0);  // Set to 0°
+//		osDelay(pdMS_TO_TICKS(2000));
+//		PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 90°
+//		PCA9685_SetServoAngle_DS3225(14, 180);  // Set to 90°
+//		PCA9685_SetServoAngle(13, 90);  // Set to 90°
+//		PCA9685_SetServoAngle(12, 80);  // Set to 80°
+
+		//tested values
+//		PCA9685_SetServoAngle_DS3225(15, 80);  // Set to 90°
+//		PCA9685_SetServoAngle_DS3225(14, 155);  // Set to 90°
+//		PCA9685_SetServoAngle(13, 50);  // Set to 90°
+//		PCA9685_SetServoAngle(12, 0);  // Set to 80°
+
+//		    PCA9685_SetServoAngle(0, 80);  // Set to 0°
+
+//		PCA9685_SetServoAngle_DS3225(15, 80);
+//		PCA9685_SetServoAngle_DS3225(14, 155);
+//		PCA9685_SetServoAngle(13, 50);
+
+
+		 // */
+
+
+
+//	    //uart integration ------------------------------ TO TEST
+//	    // Check start and end delimiters
+//		if (uartRxBuffer[0] == '!' && uartRxBuffer[14] == '#' && uartRxBuffer[15] == '#')
+//		{
+//			uint8_t command_type = uartRxBuffer[1];
+//
+//			/* Message Format: StartDelimiter(!) | Command(1B) | X(4B) | Y(4B) | Z(4B) | EndDelimiter(#)
+//			* message = struct.pack('!cB3f3s',
+//			* b'!', # Start delimiter
+//			* command_type, # 1 byte
+//			* x, y, z, # 3 floats (4 bytes each)
+//			* b'##') # End delimiter (2 bytes)
+//			*/
+//
+//
+//			// Extract x, y, z from uart msg(convert from big-endian to little-endian)
+//			uint32_t x_uint, y_uint, z_uint;
+//			float x, y, z;
+//
+//			memcpy(&x_uint, &uartRxBuffer[2], 4);
+//			x_uint = __REV(x_uint); // Reverse bytes for little-endian
+//			memcpy(&x, &x_uint, sizeof(float));
+//
+//			memcpy(&y_uint, &uartRxBuffer[6], 4);
+//			y_uint = __REV(y_uint);
+//			memcpy(&y, &y_uint, sizeof(float));
+//
+//			memcpy(&z_uint, &uartRxBuffer[10], 4);
+//			z_uint = __REV(z_uint);
+//			memcpy(&z, &z_uint, sizeof(float));
+//
+//			// Debug message
+//			char debugMsg[64];
+//			sprintf(debugMsg, "CMD: %d, X: %.2f, Y: %.2f, Z: %.2f\n", command_type, x, y, z);
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)debugMsg, strlen(debugMsg));
+//
+//
+//		    // Release both stepper semaphores simultaneously to complete stepper tasks
+//		    osSemaphoreRelease(stepperTask1Semaphore);
+//		    osSemaphoreRelease(stepperTask2Semaphore);
+//
+//			//wait until stepper tasks completed to continue (platform reaches expected height)
+//		    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//		    osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+//
+//			// Process the command (PICK or PLACE)
+//			// Use inverse kinematics to calculate joint angles
+//			float j1, j2, j3;
+//			bool ik_success = ikinematics(x, y, 90.0f, &j1, &j2, &j3); // Assuming gamma is 90 degrees
+//
+//			if (ik_success) {
+//				// Set servo angles based on IK results
+//				PCA9685_SetServoAngle_DS3225(15, j1);
+//				PCA9685_SetServoAngle_DS3225(14, j2);
+//				PCA9685_SetServoAngle(13, j3);
+//
+////				//potential small delay before gripper
+////				osDelay(pdMS_TO_TICKS(800));
+//
+//				// control gripper based on command type
+//				if (command_type == 0) { // PICK - close gripper
+//					PCA9685_SetServoAngle(0, 0);
+//				} else { // PLACE - open gripper
+//					PCA9685_SetServoAngle(0, 80);
+//				}
+//			} else {
+//				HAL_UART_Transmit_IT(&huart3, (uint8_t*)"IK Error\n", 9);
+//			}
+//		} else {
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
+//		}
+//
+//		// clear buffer for extra safety (next reception will overwrite)
 //		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
 
 
-	    // Alternate between setting the servo to 0° and 180°
-	    PCA9685_SetServoAngle(ActiveServo, 0);  // Set to 0°
-//	    HAL_Delay(500);  // Wait for 500 ms
-	    osDelay(pdMS_TO_TICKS(500));
-	    PCA9685_SetServoAngle(ActiveServo, 180); // Set to 180°
-//	    HAL_Delay(500);  // Wait for 500 ms
-	    osDelay(pdMS_TO_TICKS(500));
 
-	    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
-//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+
+
+
+
+//		//harcoded gripper test
+//		osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+//		PCA9685_SetServoAngle_DS3225(15, 90);
+//		PCA9685_SetServoAngle_DS3225(14, 180);
+//		PCA9685_SetServoAngle(13, 90);
+//		PCA9685_SetServoAngle(12, 80);
+//		osDelay(pdMS_TO_TICKS(2000));
+//
+////		//potential small delay before gripper
+////		osDelay(pdMS_TO_TICKS(800));
+////		PCA9685_SetServoAngle(12, 0);
+////
+////		osDelay(pdMS_TO_TICKS(800));
+////
+////		PCA9685_SetServoAngle_DS3225(15, 55);  // Set to 0°
+////		osDelay(pdMS_TO_TICKS(800));
+////
+////
+////		PCA9685_SetServoAngle_DS3225(14, 125);  // Set to 0°
+////		osDelay(pdMS_TO_TICKS(800));
+////
+////
+////		PCA9685_SetServoAngle(13, 30);
+////		osDelay(pdMS_TO_TICKS(800));
+
+
+
+
+
+
+
+//	    //test just UART msg with stepper for now:
+//		if (uartRxBuffer[0] == '!' && uartRxBuffer[14] == '#' && uartRxBuffer[15] == '#')
+//		{
+//			uint8_t command_type = uartRxBuffer[1];
+//
+//			/* Message Format: StartDelimiter(!) | Command(1B) | X(4B) | Y(4B) | Z(4B) | EndDelimiter(#)
+//			* message = struct.pack('!cB3f3s',
+//			* b'!', # Start delimiter
+//			* command_type, # 1 byte
+//			* x, y, z, # 3 floats (4 bytes each)
+//			* b'##') # End delimiter (2 bytes)
+//			*/
+//
+//
+//			// Extract x, y, z from uart msg(convert from big-endian to little-endian)
+//			uint32_t x_uint, y_uint, z_uint;
+//			float x, y, z;
+//
+//			memcpy(&x_uint, &uartRxBuffer[2], 4);
+//			x_uint = __REV(x_uint); // Reverse bytes for little-endian
+//			memcpy(&x, &x_uint, sizeof(float));
+//
+//			memcpy(&y_uint, &uartRxBuffer[6], 4);
+//			y_uint = __REV(y_uint);
+//			memcpy(&y, &y_uint, sizeof(float));
+//
+//			memcpy(&z_uint, &uartRxBuffer[10], 4);
+//			z_uint = __REV(z_uint);
+//			memcpy(&z, &z_uint, sizeof(float));
+//
+//			// Debug message
+//			char debugMsg[64];
+//			snprintf(debugMsg, sizeof(debugMsg), "CMD: %d, X: %.2f, Y: %.2f, Z: %.2f\n", command_type, x, y, z);
+////			sprintf(debugMsg, "CMD: %d, X: %d.%02d, Y: %d.%02d, Z: %d.%02d\n",
+////			    command_type,
+////			    (int)x, (int)(x * 100) % 100,
+////			    (int)y, (int)(y * 100) % 100,
+////			    (int)z, (int)(z * 100) % 100);
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)debugMsg, strlen(debugMsg));
+//
+//
+////			// Release both stepper semaphores simultaneously to complete stepper tasks
+////			osSemaphoreRelease(stepperTask1Semaphore);
+////			osSemaphoreRelease(stepperTask2Semaphore);
+////
+////			//wait until stepper tasks completed to continue (platform reaches expected height)
+////			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+////			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+////			//test servo control
+////			PCA9685_SetServoAngle_DS3225(15, 0);  // Set to 0°
+////			PCA9685_SetServoAngle_DS3225(14, 0);  // Set to 0°
+////			PCA9685_SetServoAngle(13, 0);  // Set to 0°
+////			PCA9685_SetServoAngle(12, 0);  // Set to 0°
+//////			PCA9685_SetServoAngle(0, 0);  // Set to 0°
+////
+////			char str2[64] = {0};
+////			snprintf(str2, sizeof(str2), "Servo Set to 0\n");
+////			HAL_UART_Transmit_IT(&huart3, (uint8_t*)str2, sizeof (str2));
+////
+////	////	    HAL_Delay(500);  // Wait for 500 ms
+////		    osDelay(pdMS_TO_TICKS(2000));
+////			PCA9685_SetServoAngle_DS3225(15, 90);  // Set to 0°
+////			PCA9685_SetServoAngle_DS3225(14, 90);  // Set to 0°
+////			PCA9685_SetServoAngle(13, 90);  // Set to 0°
+////			PCA9685_SetServoAngle(12, 80);  // Set to 0°
+//
+//
+//			//harcoded gripper test
+////			osSemaphoreAcquire(armTaskSemaphore, osWaitForever);
+//
+////			PCA9685_SetServoAngle_DS3225(15, 90);
+////			PCA9685_SetServoAngle_DS3225(14, 180);
+////			PCA9685_SetServoAngle(13, 90);
+////			PCA9685_SetServoAngle(12, 80);
+////			osDelay(pdMS_TO_TICKS(2000));
+//
+//			//potential small delay before gripper
+//			osDelay(pdMS_TO_TICKS(800));
+//			PCA9685_SetServoAngle(12, 0);
+//
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//			PCA9685_SetServoAngle_DS3225(15, 55);  // Set to 0°
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//
+//			PCA9685_SetServoAngle_DS3225(14, 125);  // Set to 0°
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//
+//			PCA9685_SetServoAngle(13, 30);
+//			osDelay(pdMS_TO_TICKS(800));
+//
+//
+//		    clearBuffer(uartRxBuffer, sizeof(uartRxBuffer));
+//	//	    HAL_UART_Receive_IT(&huart2, uartRxBuffer, sizeof(uartRxBuffer));
+//
+//		} else {
+//			HAL_UART_Transmit_IT(&huart3, (uint8_t*)"Invalid UART Msg\n", 14);
+//		}
+//
+//		// clear buffer for extra safety (next reception will overwrite)
+//		memset(uartRxBuffer, 0, sizeof(uartRxBuffer));
+//
+//
+
 
 	}
-
-
-//  /* Infinite loop */
-//  for(;;)
-//  {
-//    osDelay(1);
-//  }
   /* USER CODE END StartArmTask */
 }
 
@@ -1052,22 +1720,58 @@ void StartGripperTask(void *argument)
   /* USER CODE END StartGripperTask */
 }
 
-/* USER CODE BEGIN Header_StartControlTask */
+/* USER CODE BEGIN Header_StartStep1Task */
 /**
-* @brief Function implementing the controlTask thread.
+* @brief Function implementing the step1Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartControlTask */
-void StartControlTask(void *argument)
+/* USER CODE END Header_StartStep1Task */
+void StartStep1Task(void *argument)
 {
-  /* USER CODE BEGIN StartControlTask */
+  /* USER CODE BEGIN StartStep1Task */
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	osSemaphoreAcquire(stepperTask1Semaphore, osWaitForever);
+	// Run motor 1 movement
+	//up    -     8000 delay works
+	stepCV(16000, 28000000, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN,
+		  M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
+	//down
+//	stepCCV(800, 600000, M1_IN1_PORT, M1_IN1_PIN, M1_IN2_PORT, M1_IN2_PIN,
+//		  M1_IN3_PORT, M1_IN3_PIN, M1_IN4_PORT, M1_IN4_PIN);
+	osSemaphoreRelease(armTaskSemaphore); // Notify completion
+//    osDelay(1);
   }
-  /* USER CODE END StartControlTask */
+  /* USER CODE END StartStep1Task */
+}
+
+/* USER CODE BEGIN Header_startStep2Task */
+/**
+* @brief Function implementing the step2Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startStep2Task */
+void startStep2Task(void *argument)
+{
+  /* USER CODE BEGIN startStep2Task */
+  /* Infinite loop */
+  for(;;)
+  {
+	osSemaphoreAcquire(stepperTask2Semaphore, osWaitForever);
+	// Run motor 2 movement
+	//down
+//	step2CV(800, 600000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
+//			M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
+	//up
+	step2CCV(16000, 28000000, M2_IN1_PORT, M2_IN1_PIN, M2_IN2_PORT, M2_IN2_PIN,
+			M2_IN3_PORT, M2_IN3_PIN, M2_IN4_PORT, M2_IN4_PIN);
+	osSemaphoreRelease(armTaskSemaphore); // Notify completion
+//    osDelay(1);
+  }
+  /* USER CODE END startStep2Task */
 }
 
 /**

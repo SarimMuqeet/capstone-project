@@ -411,6 +411,17 @@ PCA9685_STATUS PCA9685_SetServoAngle(uint8_t Channel, float Angle)
 
 	return PCA9685_SetPin(Channel, (uint16_t)Value, 0);
 }
+
+PCA9685_STATUS PCA9685_SetServoAngle_DS3225(uint8_t Channel, float Angle)
+{
+	float Value;
+	if(Angle < DS_MIN_ANGLE) Angle = DS_MIN_ANGLE;
+	if(Angle > DS_MAX_ANGLE) Angle = DS_MAX_ANGLE;
+
+	Value = (Angle - DS_MIN_ANGLE) * ((float)DS_SERVO_MAX - (float)DS_SERVO_MIN) / (DS_MAX_ANGLE - DS_MIN_ANGLE) + (float)DS_SERVO_MIN;
+
+	return PCA9685_SetPin(Channel, (uint16_t)Value, 0);
+}
 #endif
 
 PCA9685_STATUS PCA9685_Init(I2C_HandleTypeDef *hi2c)

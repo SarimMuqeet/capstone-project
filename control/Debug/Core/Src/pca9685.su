@@ -9,4 +9,5 @@
 ../Core/Src/pca9685.c:352:16:PCA9685_SetPwm	40	static
 ../Core/Src/pca9685.c:371:16:PCA9685_SetPin	16	static
 ../Core/Src/pca9685.c:404:16:PCA9685_SetServoAngle	24	static
-../Core/Src/pca9685.c:416:16:PCA9685_Init	16	static
+../Core/Src/pca9685.c:415:16:PCA9685_SetServoAngle_DS3225	24	static
+../Core/Src/pca9685.c:427:16:PCA9685_Init	16	static

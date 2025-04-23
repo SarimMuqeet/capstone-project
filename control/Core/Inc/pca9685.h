@@ -141,6 +141,17 @@
 #define SERVO_MAX	500
 #define MIN_ANGLE	0.0
 #define MAX_ANGLE	180.0
+
+
+/* Servo Macros for DS3225-270 motor */
+// 1 / 50 Hz = 20 ms period
+// 2^12 bits resolution for PCA9685 = 4096 steps
+#define DS_SERVO_MIN 102.4 //500 pus start PWM = 0.5 ms -> (0.5 ms / 20 ms period) * 4096
+#define DS_SERVO_MAX 512 //2500 pus end PWM = 2.5 ms -> (2.5 ms / 20 ms period) * 4096
+//DS3225-270 motor sweeps 270 deg
+#define DS_MIN_ANGLE 0.0
+#define DS_MAX_ANGLE 270.0
+
 #endif
 
 //
@@ -200,6 +211,7 @@ PCA9685_STATUS PCA9685_SetPwm(uint8_t Channel, uint16_t OnTime, uint16_t OffTime
 PCA9685_STATUS PCA9685_SetPin(uint8_t Channel, uint16_t Value, uint8_t Invert);
 #ifdef PCA9685_SERVO_MODE
 PCA9685_STATUS PCA9685_SetServoAngle(uint8_t Channel, float Angle);
+PCA9685_STATUS PCA9685_SetServoAngle_DS3225(uint8_t Channel, float Angle);
 #endif
 
 PCA9685_STATUS PCA9685_Init(I2C_HandleTypeDef *hi2c);
